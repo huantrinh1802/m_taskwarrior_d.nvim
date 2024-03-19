@@ -22,14 +22,43 @@ require("lazy").setup({
 
 ## Features
 
-- Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior.
-  - Only in Markdown with ( - [ ]) at the moment
+- [ ] Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior.
+  - [x] Work with Markdown with ( - [ ])
+  - [ ] Docstring in Python
+  - [ ] JSDoc in JavaScript
 - Bidirectionally manage the task.
 - Best effort to add contexts to the tasks:
-  - Tags
-  - Dependencies
-  - Project
-  - Status
+  - Use treesitter for better capturing contexts
+  - [ ] Tags
+  - [>] Dependencies
+    - [x] Detect ested subtasks and update related tasks
+  - [ ] Project
+
+## Demo
+
+TBC
+
+## Dependencies
+
+- [TaksWarrior](https://taskwarrior.org/) (hard required)
+- [jq](https://jqlang.github.io/jq/) (required)
+- [toggleterm](https://github.com/akinsho/toggleterm.nvim) (optional)
+
+## Work Well With
+
+- [mkdnflow.nvim](https://github.com/jakewvincent/mkdnflow.nvim)
+  - This plugin provides comprehensive utilities for Markdown files.
+  - Caveat: you need to disable/not use toggle checkbox from this plugin
+- [obsidian.nvim](https://github.com/epwalsh/obsidian.nvim/tree/main)
+  - If you use Obsidian for note taking, this plugin is highly recommended.
+  - This plugin provides some nice concealment and utilities for Obsidian.
+
+## Similar To
+
+- [taskwiki](https://github.com/tools-life/taskwiki)
+  - This plugin provides better utilities for managing tasks in Markdown files with TaskWarrior.
+  - Reasons I decided not to use this plugin:
+    - Rely on [Vimwiki](https://github.com/vimwiki/vimwiki), which has wonky interactions with `obsidian.nvim` and `mkdnflow.nvim` (it has a special filetype `vimwiki`.)
 
 ## Usage
 
