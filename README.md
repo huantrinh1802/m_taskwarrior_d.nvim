@@ -87,4 +87,7 @@ If you encounter any issues or have suggestions for improvements, please open
 
 - Ben Trinh <huantrinh1802@gmail.com>
 
-Thank you for using the Neovim Lua Plugin! If you find it helpful, please consider starring the repository.
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W4VVT9J)
+
+Thank you for using the Neovim Lua Plugin! If you find it helpful, please consider
+ starring the repository.
