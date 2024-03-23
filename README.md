@@ -23,7 +23,22 @@ require("lazy").setup({
 })
 ```
 
-### Features
+## Screenshots
+
+### Sync Tasks
+
+[Before](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/BeforeSync.png)
+[After](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterSync.png)
+
+### Quick View
+
+[QuickView](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/QuickViewOfTask.png)
+
+### Edit Task
+
+[EditTaskFloat](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/EditTask.png)
+
+## Features
 
 - [x] Injected and concealed TaskWarrior task
 - [ ] Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior
@@ -178,7 +193,6 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 - `TWView`: a quick view of more details of the task
   - It is focusable so you can copy texts from their
   - It will be dismissed once the cursor moves or reenter the buffer
-
 ### Task Dependencies
 
 - Nested checkboxes are depended on the parent checkbox
