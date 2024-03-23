@@ -25,20 +25,20 @@ require("lazy").setup({
 
 ### Features
 
-- [x] Injected and concealed TaskWarrior task $id{5752e26d-b76e-4799-9f9f-016402ab0150}
-- [ ] Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior $id{cceb2bd6-83eb-42a0-9713-f5f7256d5cee}
-  - [x] Work with Markdown with ( - [ ]) $id{f3d0233b-720b-41ee-9c91-9d046d3d6b0f}
-  - [ ] Docstring in Python $id{b2f4cdd8-cca1-4191-a2c6-d68d608b81dd}
-  - [ ] JSDoc in JavaScript $id{26b05754-afc0-4f44-9197-fb19d01698f8}
-- [>] Bidirectionally manage the task $id{cc871e54-088b-49e7-b8a3-0cc22ae81e04}
-- [>] Best effort to add contexts to the tasks: $id{03714337-dd43-4556-b359-42f91955b4d6}
-  - [ ] Use treesitter for better capturing contexts $id{20b3fdbf-436c-4ea1-8e58-0fe8c63c714f}
-  - [ ] Tags $id{2cc75c5d-7d2c-4805-aac7-bc367f60bc6f}
-  - [>] Dependencies $id{205b321d-76f9-4ec1-8f97-679cfa850c59}
-    - [x] Detect nested subtasks and update related tasks $id{7fba9ce7-11fc-472c-ab07-9c2e7a069a44}
-  - [ ] Project $id{f35f9475-7732-414e-9d2b-e006da675366}
-- [x] View individual task on hover $id{e050d326-f5b4-4608-8024-ffedaaa0eed5}
-- [x] Edit task detail within Neovim (through toggleterm) $id{166d033c-c831-4e28-9ba7-554518537dc5}
+- [x] Injected and concealed TaskWarrior task
+- [ ] Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior
+  - [x] Work with Markdown with ( - [ ])
+  - [ ] Docstring in Python
+  - [ ] JSDoc in JavaScript
+- [>] Bidirectionally manage the task
+- [>] Best effort to add contexts to the tasks:
+  - [ ] Use treesitter for better capturing contexts
+  - [ ] Tags
+  - [>] Dependencies
+    - [x] Detect nested subtasks and update related tasks
+  - [ ] Project
+- [x] View individual task on hover
+- [x] Edit task detail within Neovim (through nui.nvim)
 
 ## Maybe Feature
 
@@ -157,11 +157,27 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 
 ### Commands
 
-- `TWToggle`: toggle status of task
-- `TWSyncTasks`: traverse the current buffer and sync all tasks
+- `:TWToggle`: toggle status of task
+  - It also checks the parent task (if any) to determine the final status and apply it. The logic is as follows:
+    - If there are any started tasks, it returns "started".
+    - If there are pending tasks but no started tasks, it returns "pending".
+    - If there are completed tasks, it returns "completed".
+    - If there are deleted tasks, it returns "deleted".
+    - If none of the above conditions are met, it returns "unknown" (or any other default value).
+- `:TWSyncTasks`: traverse the current buffer and sync all tasks
+  - There are a few scenarios, that may happen:
+    - If the task is not in TaskWarrior, and doesn't have UUID, it will add the task to TaskWarrior and add the UUID to the buffer
+    - If the task is not in TaskWarrior, but have UUID in the follow format `$id{uuid}` then it will add the task to TaskWarrior and update the UUID
+    - If the task is in Takswarrior:
+      - If nothing changes, nothing get updated
+      - If the descriptions are different, it will update the description in the buffer as I prefer TaksWarrior to be source of truth
 - `TWUpdateCurrent`: quickly update the description of the task so you don't have to use the edit command
-- `TWEditTask`: toggle a float window, which can edit the task. Using the `task {id} edit`
+- `TWEditTask`: toggle a float window, which can edit the task. 
+  - Using the `task {id} edit` behind the scene
+  - It will update the description in the buffer if you editted it in the popup
 - `TWView`: a quick view of more details of the task
+  - It is focusable so you can copy texts from their
+  - It will be dismissed once the cursor moves or reenter the buffer
 
 ### Task Dependencies
 
