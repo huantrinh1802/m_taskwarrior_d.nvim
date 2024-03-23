@@ -1,6 +1,10 @@
 local M = {}
-M.status_map = require('m_taskwarrior_d.utils').status_map
 
+function M.set_config(opts)
+  for k, v in pairs(opts) do
+    M[k] = v
+  end
+end
 -- Function to execute Taskwarrior command
 local function execute_taskwarrior_command(command, return_data)
   if not return_data or return_data == nil then
@@ -39,10 +43,11 @@ function M.get_task_by(task_id, return_data)
 end
 -- Function to add a task
 function M.add_task(description)
-  local command = string.format("task add %s", description)
+  description = require('m_taskwarrior_d.utils').trim(description)
+  local command = string.format("task rc.verbose=new-uuid add '%s'", description)
   local _, result = execute_taskwarrior_command(command, true)
-  local task_number = tonumber(string.match(result, "%d+"))
-  return M.get_task_by(task_number)
+  local task_uuid = string.match(result, '%x*-%x*-%x*-%x*-%x*')
+  return task_uuid
 end
 
 -- Function to list tasks
@@ -59,7 +64,7 @@ function M.mark_task_done(task_id)
 end
 
 function M.modify_task(task_id, desc)
-  local command = string.format("task %s mod %s", task_id, desc)
+  local command = string.format("task %s mod '%s'", task_id, desc)
   local handle = io.popen(command)
   local result = handle:read("*a")
   handle:close()
@@ -74,7 +79,7 @@ function M.modify_task_status(task_id, new_status)
     local status = M.status_map[new_status]
     command = string.format("task %s modify status:%s -started", task_id, status)
   end
-  local status, result = execute_taskwarrior_command(command, true)
+  local status, result = execute_taskwarrior_command(command)
 end
 
 function M.add_task_deps(current_task_id, deps)
@@ -93,10 +98,5 @@ function M.get_tasks_by(uuids)
     execute_taskwarrior_command(string.format("task export | jq '.[] | select(.uuid | IN(%s))' | jq -s ", uuids), true)
   return status, result
 end
-
--- Define Neovim commands
--- vim.cmd("command! -nargs=1 TaskAdd lua require('taskwarrior').add_task(<f-args>)")
--- vim.cmd("command! TaskList lua require('taskwarrior').list_tasks()")
--- vim.cmd("command! -nargs=1 TaskDone lua require('taskwarrior').mark_task_done(<f-args>)")
 
 return M
