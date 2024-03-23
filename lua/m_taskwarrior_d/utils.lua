@@ -1,10 +1,33 @@
 local M = {}
-M.task_statuses = { " ", ">", "x", "~" }
-M.status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" }
-M.task_pattern = { lua = "([%-%*%+]) (%[([%sx~>])%])", vim = "([\\-\\*\\+]) (\\[([\\sx~>])\\])" }
-M.id_pattern = { vim = "(\\$id@([0-9a-fA-F\\-]\\+)@)", lua = "(%$id@([0-9a-fA-F$-]+)@)" }
+M.checkbox_pattern = { lua = "([%-%*%+]) (%[([%sx~%>])%])", vim = "([\\-\\*\\+]) (\\[([\\sx~>])\\])" }
+M.id_pattern = { vim = "(\\$id{([0-9a-fA-F\\-]\\+)})", lua = "(%$id@([0-9a-fA-F$-]+)@)" }
+M.task_pattern = {
+  lua = M.checkbox_pattern.lua .. " (.*) " .. M.id_pattern.lua,
+  vim = M.checkbox_pattern.vim .. " (.*) " .. M.id_pattern.vim,
+}
+
+function M.encode_patterns(str)
+  local lua_pattern = str:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?%s%>]", "%%%1")
+  lua_pattern = lua_pattern:gsub(" ", "%s")
+  local vim_regex = str:gsub("[\\%*\\.\\[\\^\\$\\(\\)\\|\\?\\+\\s]", "\\%1")
+  vim_regex = str:gsub(" ", "\\s")
+  return { lua = lua_pattern, vim = vim_regex }
+end
+
+function M.set_config(opts)
+  for k, v in pairs(opts) do
+    M[k] = v
+  end
+end
+
+function M.trim(st)
+  return st:match("^%s*(.*%S)") or ""
+end
 
 local function count_leading_spaces(line)
+  if line == nil then
+    return nil
+  end
   local count = 0
   for i = 1, #line do
     if line:sub(i, i) == " " then
@@ -14,26 +37,6 @@ local function count_leading_spaces(line)
     end
   end
   return count
-end
-
-function M.modify_task(parts)
-  -- Get the current buffer
-  local bufnr = vim.api.nvim_get_current_buf()
-
-  -- Get the lines in the buffer
-  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-
-  -- Iterate through each line to get the number of leading spaces
-
-  -- Modify the lines
-  local task_pattern = "[%-%*%+] %[%s%]"
-  local uuid_pattern = "#%([0-9a-fA-F%-]+%)"
-  for i, line in ipairs(lines) do
-    if string.find(line, uuid_pattern) ~= nil and string.match(line, task_pattern) then
-      lines[i] = line .. "#hahaha"
-    end
-  end
-  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 end
 
 function M.get_line(line_number)
@@ -90,7 +93,6 @@ end
 local function calculate_final_status(tasks)
   local pendingCount, startedCount, completedCount, deletedCount = 0, 0, 0, 0
   for _, task in ipairs(tasks) do
-    print(task.status)
     if task.status == "pending" then
       if task["tags"] ~= nil and contains(task.tags, "started") then
         startedCount = startedCount + 1
@@ -137,7 +139,7 @@ local function find_pattern_line(pattern)
 end
 
 function M.update_related_tasks_statuses(uuid)
-  local task_mod = require('m_taskwarrior_d.task')
+  local task_mod = require("m_taskwarrior_d.task")
   local _, result = task_mod.get_blocked_tasks_by(uuid)
   local tasks
   if vim == nil then
@@ -156,14 +158,10 @@ function M.update_related_tasks_statuses(uuid)
       dependencies = vim.fn.json_decode(dependencies_result)
     end
     local new_status = calculate_final_status(dependencies)
-    print(new_status)
     local line_number = find_pattern_line(task.uuid)
     new_status, _ = findPair(M.status_map, nil, new_status)
-    print(new_status)
     M.toggle_task_status(nil, line_number, new_status)
     task_mod.modify_task_status(task.uuid, new_status)
-    -- for _, dep in ipairs(dependencies) do
-    -- end
   end
 end
 
@@ -173,8 +171,7 @@ function M.toggle_task_status(current_line, line_number, new_status)
   end
   if new_status == nil then
     -- Get the current buffer number
-    local task_pattern = "([%-%*%+]) (%[([%sx~>])%])"
-    local _, checkbox, status = string.match(current_line, task_pattern)
+    local _, _, status = string.match(current_line, M.checkbox_pattern.lua)
     if status == nil then
       return nil
     end
@@ -185,25 +182,27 @@ function M.toggle_task_status(current_line, line_number, new_status)
       new_status = M.task_statuses[status_index + 1]
     end
   end
-  local modified_line = string.gsub(current_line, "%[[%sx~%>]%]", "[" .. new_status .. "]")
+  local modified_line = string.gsub(current_line, M.status_pattern.lua, "[" .. new_status .. "]")
   -- Set the modified line back to the buffer
 
   vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { modified_line })
   return new_status
 end
 
-function M.add_or_sync_task(line)
-  local list_sb, checkbox, status = string.match(line, M.task_pattern.lua)
-  local desc = string.gsub(line, M.task_pattern.lua, "")
+function M.add_or_sync_task(line, replace_desc)
+  local list_sb, _, status = string.match(line, M.checkbox_pattern.lua)
+  local desc = string.gsub(line, M.checkbox_pattern.lua, "")
   local result
-  local _, uuid = string.match(line, M.id_pattern.lua)
+  local _, uuid = string.match(line, M.id_part_pattern.lua)
   if uuid == nil then
-    result = line:gsub("%s+$", "") .. " $id@" .. require("m_taskwarrior_d.task").add_task(desc) .. "@"
+    uuid = require("m_taskwarrior_d.task").add_task(desc)
+    result = line:gsub("%s+$", "") .. " $id{" .. uuid .. "}"
   else
-    desc = string.gsub(desc, M.id_pattern.lua, "")
+    desc = string.gsub(desc, M.id_part_pattern.lua, "")
     if require("m_taskwarrior_d.task").get_task_by(uuid) == nil then
-      line = string.gsub(line, M.id_pattern.lua, "")
-      result = line:gsub("%s+$", "") .. " $id@" .. require("m_taskwarrior_d.task").add_task(desc) .. "@"
+      line = string.gsub(line, M.id_part_pattern.lua, "")
+      uuid = require("m_taskwarrior_d.task").add_task(desc)
+      result = line:gsub("%s+$", "") .. " $id{" .. uuid .. "}"
     else
       local new_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
       if new_task then
@@ -217,34 +216,54 @@ function M.add_or_sync_task(line)
         else
           new_task_status_sym = ">"
         end
+        status = new_task_status_sym
+        uuid = new_task.uuid
         local spaces = count_leading_spaces(line)
-        result = string.rep(" ", spaces)
-          .. list_sb
-          .. " ["
-          .. new_task_status_sym
-          .. "] "
-          .. new_task.description
-          .. " $id@"
-          .. new_task.uuid
-          .. "@"
-        -- result = line:gsub("(%[([%sx~%>])%])", "[" .. new_task_status_sym .. "]")
+        if replace_desc then
+          result = string.rep(" ", spaces or 0)
+            .. list_sb
+            .. " ["
+            .. new_task_status_sym
+            .. "] "
+            .. M.trim(desc)
+            .. " $id{"
+            .. new_task.uuid
+            .. "}"
+        else
+          result = string.rep(" ", spaces or 0)
+            .. list_sb
+            .. " ["
+            .. new_task_status_sym
+            .. "] "
+            .. new_task.description
+            .. " $id{"
+            .. new_task.uuid
+            .. "}"
+        end
       else
         result = line
       end
     end
   end
+  require("m_taskwarrior_d.task").modify_task_status(uuid, status)
   return result
 end
 
-local function extract_uuid(line)
-  local uuid_pattern = "($id@(.*)@)"
+function M.extract_uuid(line)
+  if line == nil then
+    return nil
+  end
+  local uuid_pattern = M.id_part_pattern.lua
   local conceal, uuid = string.match(line, uuid_pattern)
   return conceal, uuid
 end
 
 function M.check_dependencies(line_number)
   local current_line, _ = M.get_line(line_number)
-  local _, current_uuid = extract_uuid(current_line)
+  if current_line == nil then
+    return nil
+  end
+  local _, current_uuid = M.extract_uuid(current_line)
   local current_number_of_spaces = count_leading_spaces(current_line)
   local deps = {}
   if current_uuid == nil then
@@ -256,13 +275,29 @@ function M.check_dependencies(line_number)
     return nil, nil
   end
   local next_number_of_spaces = count_leading_spaces(next_line)
-  local _, next_uuid = extract_uuid(next_line)
-  while current_number_of_spaces < next_number_of_spaces do
+  if next_number_of_spaces == nil then
+    return nil, nil
+  end
+  local _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
+  local desc = string.gsub(next_line, M.checkbox_pattern.lua, "")
+  local _, next_uuid = M.extract_uuid(next_line)
+  if checkbox == nil then
+    return nil, nil
+  end
+  while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
+    if next_uuid == nil then
+      local result = M.add_or_sync_task(desc)
+      vim.api.nvim_buf_set_lines(0, line_number + count - 1, line_number + count, false, { result })
+    end
     table.insert(deps, next_uuid)
     count = count + 1
     next_line = M.get_line(line_number + count)
-    next_number_of_spaces = count_leading_spaces(next_line)
-    _, next_uuid = extract_uuid(next_line)
+    if next_line ~= nil then
+      next_number_of_spaces = count_leading_spaces(next_line)
+      _, next_uuid = M.extract_uuid(next_line)
+      _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
+      desc = string.gsub(next_line, M.checkbox_pattern.lua, "")
+    end
   end
   return current_uuid, deps
 end
