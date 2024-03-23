@@ -27,7 +27,10 @@ require("lazy").setup({
 
 ### Sync Tasks
 
+#### Before
 ![Before](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/%20BeforeSync.png)
+
+#### After
 ![After](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterSync.png)
 
 ### Quick View
