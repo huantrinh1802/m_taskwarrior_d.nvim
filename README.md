@@ -27,16 +27,16 @@ require("lazy").setup({
 
 ### Sync Tasks
 
-[Before](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/BeforeSync.png)
-[After](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterSync.png)
+![Before](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/%20BeforeSync.png)
+![After](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterSync.png)
 
 ### Quick View
 
-[QuickView](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/QuickViewOfTask.png)
+![QuickView](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/QuickViewOfTask.png)
 
 ### Edit Task
 
-[EditTaskFloat](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/EditTask.png)
+![EditTaskFloat](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/EditTask.png)
 
 ## Features
 
