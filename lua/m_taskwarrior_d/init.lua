@@ -8,11 +8,6 @@ M._config = {
   status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" },
   id_pattern = { vim = "\\x*-\\x*-\\x*-\\x*-\\x*", lua = "%x*-%x*-%x*-%x*-%x*" },
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
-  -- checkbox_pattern = { lua = "([%-%*%+]) (%[([%sx~%>])%])", vim = "([\\-\\*\\+]) (\\[([\\sx~>])\\])" },
-  -- task_pattern = {
-  --   lua = M.checkbox_pattern.lua .. " (.*) " .. M.id_part_pattern.lua,
-  --   vim = M.checkbox_pattern.vim .. " (.*) " .. M.id_part_pattern.vim,
-  -- },
 }
 
 function M.sync_tasks()
@@ -22,7 +17,6 @@ function M.sync_tasks()
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   -- Iterate through each line to get the number of leading spaces
   for i, line in ipairs(lines) do
-    print(M._config.checkbox_pattern.lua)
     if string.match(line, M._config.checkbox_pattern.lua) then
       local result = M.utils.add_or_sync_task(line)
       if result then
