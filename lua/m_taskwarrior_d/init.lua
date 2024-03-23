@@ -100,7 +100,7 @@ end
 
 function M.view_task()
   local current_line = vim.api.nvim_get_current_line()
-  local conceal, uuid = M.extract_uuid(current_line)
+  local conceal, uuid = M.utils.extract_uuid(current_line)
   local task_info = M.task.get_task_by(uuid, "task")
   if task_info == nil then
     print("No task found")
