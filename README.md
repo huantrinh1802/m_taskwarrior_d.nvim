@@ -188,6 +188,12 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - It is focusable so you can copy texts from their
   - It will be dismissed once the cursor moves or reenter the buffer
 - `:TWRunWithCurrent`: extract the current UUID, and ask user for input. Run the command as follow `!task {uuid} {user input}`
+- `TWRun`: there are two ways to use this command:
+  1. `TWRun` without any arguments, an input component will appear and ask for your command
+  2. `TWRun {command}`
+  - Run the command as follow `task {user input}`
+    - If the command has `add`, `del`, `mod` or `purge`, the output will print out only
+    - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or reenter the buffer
 
 ### Task Dependencies
 
