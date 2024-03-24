@@ -9,20 +9,6 @@ The goals of this plugin are:
 - Improve the workflow of task management in Markdown files
 - Not reinvent the wheel of the way Taskwarrior manages tasks
 
-## Installation
-
-```lua
-require("lazy").setup({
-    {
-        "huantrinh1802/m_taskwarrior_d.nvim",
-        dependencies = { "MunifTanjim/nui.nvim" },
-        config = function() {
-            require("m_taskwarrior_d").setup()
-        }
-    }
-})
-```
-
 ## Screenshots
 
 ### Sync Tasks
@@ -181,10 +167,10 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 
 - `:TWToggle`: toggle status of task
   - It also checks the parent task (if any) to determine the final status and apply it. The logic is as follows:
-    - If there are any started tasks, it returns "started".
-    - If there are pending tasks but no started tasks, it returns "pending".
-    - If there are completed tasks, it returns "completed".
-    - If there are deleted tasks, it returns "deleted".
+    - If there are any started tasks, it returns `started`.
+    - If there are pending tasks but no started tasks, it returns `pending`.
+    - If there are completed tasks, it returns `completed`.
+    - If they are all deleted tasks, it returns `deleted`.
     - If none of the above conditions are met, it returns "unknown" (or any other default value).
 - `:TWSyncTasks`: traverse the current buffer and sync all tasks
   - There are a few scenarios, that may happen:
