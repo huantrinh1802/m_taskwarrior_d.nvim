@@ -42,6 +42,7 @@ function M.edit_task()
     border = {
       style = "rounded",
     },
+
     position = "50%",
     size = {
       width = "80%",
@@ -149,12 +150,12 @@ local function process_opts(opts)
   end
   local status_pattern = M.utils.encode_patterns(table.concat(M._config.task_statuses, ""))
   M._config["status_pattern"] = {
-    lua = "(%[(["..status_pattern.lua.."])%])",
-    vim = "(\\[(["..status_pattern.vim.."])\\])",
+    lua = "(%[([" .. status_pattern.lua .. "])%])",
+    vim = "(\\[([" .. status_pattern.vim .. "])\\])",
   }
   M._config["checkbox_pattern"] = {
-    lua = "(" .. M._config.list_pattern.lua .. ") "..M._config["status_pattern"].lua,
-    vim = "(" .. M._config.list_pattern.vim .. ") "..M._config["status_pattern"].vim,
+    lua = "(" .. M._config.list_pattern.lua .. ") " .. M._config["status_pattern"].lua,
+    vim = "(" .. M._config.list_pattern.vim .. ") " .. M._config["status_pattern"].vim,
   }
   M._config["id_part_pattern"] = {
     vim = "(\\$id{" .. M._config.id_pattern.vim .. "})",
@@ -193,6 +194,10 @@ function M.setup(opts)
 
   vim.api.nvim_create_user_command("TWToggle", function()
     M.toggle_task()
+  end, {})
+  vim.api.nvim_create_user_command("TWSyncCurrent", function()
+    local current_line, line_number = M.utils.get_line()
+    M.utils.sync_task(current_line, line_number)
   end, {})
   vim.api.nvim_create_user_command("TWSyncTasks", function()
     M.sync_tasks()
