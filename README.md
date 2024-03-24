@@ -28,9 +28,11 @@ require("lazy").setup({
 ### Sync Tasks
 
 #### Before
+
 ![Before](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/%20BeforeSync.png)
 
 #### After
+
 ![After](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterSync.png)
 
 ### Quick View
@@ -54,9 +56,11 @@ require("lazy").setup({
   - [ ] Tags
   - [>] Dependencies
     - [x] Detect nested subtasks and update related tasks
+    - [ ] Render dependencies with query view
   - [ ] Project
 - [x] View individual task on hover
 - [x] Edit task detail within Neovim (through nui.nvim)
+- [ ] `Query View` similar to `dateview` in Obsidian or `Viewport` in Taskwiki
 
 ## Maybe Feature
 
@@ -189,22 +193,27 @@ If you are using `obsidian.nvim`, you can use the following configuration:
     - If the task is in Takswarrior:
       - If nothing changes, nothing get updated
       - If the descriptions are different, it will update the description in the buffer as I prefer TaksWarrior to be source of truth
-- `TWUpdateCurrent`: quickly update the description of the task so you don't have to use the edit command
-- `TWEditTask`: toggle a float window, which can edit the task. 
+- `:TWSyncCurrent`: similar to `TWSyncTasks` but only sync the current task
+- `:TWUpdateCurrent`: quickly update the description of the task so you don't have to use the edit command
+- `:TWEditTask`: toggle a float window, which can edit the task.
   - Using the `task {id} edit` behind the scene
   - It will update the description in the buffer if you editted it in the popup
-- `TWView`: a quick view of more details of the task
+- `:TWView`: a quick view of more details of the task
   - It is focusable so you can copy texts from their
   - It will be dismissed once the cursor moves or reenter the buffer
+- `:TWRunWithCurrent`: extract the current UUID, and ask user for input. Run the command as follow `!task {uuid} {user input}`
+
 ### Task Dependencies
 
 - Nested checkboxes are depended on the parent checkbox
+
 ```markdown
 - [ ] Task 1 # Has 1.1, 1.2, 1.2.1 as dependencies $id{d4452942-ac6e-46c6-b110-001ea731c676}
   - [ ] Task 1.1 # Has none $id{53389315-5975-4db9-a796-1cd2514e1be1}
   - [ ] Task 1.2 # Has 1.2.1 as dependency $id{ea843624-37c0-429c-89c6-19f661149668}
     - [ ] Task 1.2.1 $id{792e57a6-ea55-4c9e-ab32-9e840d66088d}
 ```
+
 ## License
 
 This plugin is licensed under the MIT License. See the LICENSE file for more
