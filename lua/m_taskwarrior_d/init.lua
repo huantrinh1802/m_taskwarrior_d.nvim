@@ -18,14 +18,7 @@ function M.sync_tasks()
   -- Iterate through each line to get the number of leading spaces
   for i, line in ipairs(lines) do
     if string.match(line, M._config.checkbox_pattern.lua) then
-      local result = M.utils.add_or_sync_task(line)
-      if result then
-        vim.api.nvim_buf_set_lines(bufnr, i - 1, i, false, { result })
-      end
-      local current_uuid, deps = M.utils.check_dependencies(i)
-      if current_uuid ~= nil then
-        M.task.add_task_deps(current_uuid, deps)
-      end
+      M.utils.sync_task(line, i)
     end
   end
 end

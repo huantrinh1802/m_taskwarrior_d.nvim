@@ -301,4 +301,16 @@ function M.check_dependencies(line_number)
   end
   return current_uuid, deps
 end
+
+function M.sync_task(current_line, line_number)
+  local result = M.add_or_sync_task(current_line)
+  if result then
+    vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
+  end
+  local current_uuid, deps = M.check_dependencies(line_number)
+  if current_uuid ~= nil then
+    require("m_taskwarrior_d.task").add_task_deps(current_uuid, deps)
+  end
+end
+
 return M
