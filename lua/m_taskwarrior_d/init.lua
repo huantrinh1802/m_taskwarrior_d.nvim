@@ -142,6 +142,37 @@ function M.view_task()
   vim.api.nvim_buf_set_lines(popup.bufnr, 0, 1, false, md_table)
 end
 
+function M.run_with_current()
+  local Input = require("nui.input")
+  -- local event = require("nui.utils.autocmd").event
+  local current_line, line_number = M.utils.get_line()
+  local _, uuid = M.utils.extract_uuid(current_line)
+  local input = Input({
+    relative = "cursor",
+    position = 0,
+    size = {
+      width = 100,
+    },
+    border = {
+      style = "single",
+      text = {
+        top = "Run task with " .. uuid,
+        top_align = "center",
+      },
+    },
+    win_options = {
+      winhighlight = "Normal:Normal,FloatBorder:Normal",
+    },
+  }, {
+    prompt = "",
+    default_value = "",
+    on_submit = function(value)
+      M.task.execute_taskwarrior_command("task " .. uuid .. " " .. value, nil, true)
+      M.utils.sync_task(current_line, line_number)
+    end,
+  })
+  input:mount()
+end
 local function process_opts(opts)
   if opts ~= nil then
     for k, v in pairs(opts) do
@@ -210,6 +241,9 @@ function M.setup(opts)
   end, {})
   vim.api.nvim_create_user_command("TWView", function()
     M.view_task()
+  end, {})
+  vim.api.nvim_create_user_command("TWRunWithCurrent", function()
+    M.run_with_current()
   end, {})
 end
 
