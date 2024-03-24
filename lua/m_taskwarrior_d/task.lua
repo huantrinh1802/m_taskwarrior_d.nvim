@@ -6,12 +6,15 @@ function M.set_config(opts)
   end
 end
 -- Function to execute Taskwarrior command
-local function execute_taskwarrior_command(command, return_data)
+function M.execute_taskwarrior_command(command, return_data, print_output)
   if not return_data or return_data == nil then
     command = command .. " 2>&1"
   end
   local handle = io.popen(command)
   local result = handle:read("*a")
+  if print_output then
+    print(result)
+  end
   local _, status, code = handle:close()
   return code, result
 end
@@ -45,7 +48,7 @@ end
 function M.add_task(description)
   description = require('m_taskwarrior_d.utils').trim(description)
   local command = string.format("task rc.verbose=new-uuid add '%s'", description)
-  local _, result = execute_taskwarrior_command(command, true)
+  local _, result = M.execute_taskwarrior_command(command, true)
   local task_uuid = string.match(result, '%x*-%x*-%x*-%x*-%x*')
   return task_uuid
 end
@@ -53,14 +56,14 @@ end
 -- Function to list tasks
 function M.list_tasks()
   local command = "task"
-  local _, result = execute_taskwarrior_command(command, true)
+  local _, result = M.execute_taskwarrior_command(command, true)
   return result
 end
 
 -- Function to mark a task as done
 function M.mark_task_done(task_id)
   local command = string.format("task %s done", task_id)
-  local result = execute_taskwarrior_command(command)
+  local result = M.execute_taskwarrior_command(command)
 end
 
 function M.modify_task(task_id, desc)
@@ -79,23 +82,23 @@ function M.modify_task_status(task_id, new_status)
     local status = M.status_map[new_status]
     command = string.format("task %s modify status:%s -started", task_id, status)
   end
-  local status, result = execute_taskwarrior_command(command)
+  local status, result = M.execute_taskwarrior_command(command)
 end
 
 function M.add_task_deps(current_task_id, deps)
   local command = string.format("task %s modify dep:%s", current_task_id, table.concat(deps, ","))
-  local result = execute_taskwarrior_command(command)
+  local result = M.execute_taskwarrior_command(command)
 end
 
 function M.get_blocked_tasks_by(uuid)
   local command = string.format("task export | jq '.[]|select(.depends | index(\"%s\"))' | jq -s", uuid)
-  local status, result = execute_taskwarrior_command(command, true)
+  local status, result = M.execute_taskwarrior_command(command, true)
   return status, result
 end
 
 function M.get_tasks_by(uuids)
   local status, result =
-    execute_taskwarrior_command(string.format("task export | jq '.[] | select(.uuid | IN(%s))' | jq -s ", uuids), true)
+    M.execute_taskwarrior_command(string.format("task export | jq '.[] | select(.uuid | IN(%s))' | jq -s ", uuids), true)
   return status, result
 end
 
