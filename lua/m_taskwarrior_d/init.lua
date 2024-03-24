@@ -2,6 +2,7 @@ local M = {}
 M.task = require("m_taskwarrior_d.task")
 M.treesitter = require("m_taskwarrior_d.treesitter")
 M.utils = require("m_taskwarrior_d.utils")
+M.ui = require("m_taskwarrior_d.ui")
 M._concealTaskId = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
@@ -112,34 +113,7 @@ function M.view_task()
     end
     table.insert(md_table, string.rep("-", 16) .. "|" .. string.rep("-", 62 - 17))
   end
-
-  local Popup = require("nui.popup")
-  local event = require("nui.utils.autocmd").event
-  local autocmd = require("nui.utils.autocmd")
-
-  local popup = Popup({
-    enter = false,
-    focusable = true,
-    border = {
-      style = "rounded",
-    },
-    relative = "cursor",
-    position = 0,
-    size = {
-      width = 62,
-      height = #md_table,
-    },
-  })
-
-  -- mount/open the component
-  local bufnr = vim.api.nvim_get_current_buf()
-  autocmd.buf.define(bufnr, { event.CursorMoved, event.BufEnter }, function()
-    popup:unmount()
-  end, { once = true })
-
-  popup:mount()
-
-  vim.api.nvim_buf_set_lines(popup.bufnr, 0, 1, false, md_table)
+  M.ui.trigger_hover(md_table)
 end
 
 function M.run_with_current()
