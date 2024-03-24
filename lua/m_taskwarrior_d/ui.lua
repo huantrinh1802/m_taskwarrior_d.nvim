@@ -24,7 +24,7 @@ function M.trigger_hover(contents)
 
   -- mount/open the component
   local bufnr = vim.api.nvim_get_current_buf()
-  autocmd.buf.define(bufnr, { event.CursorMoved, event.BufEnter }, function()
+  autocmd.buf.define(bufnr, { event.CursorMoved, event.BufLeave }, function()
     popup:unmount()
   end, { once = true })
   popup:mount()
