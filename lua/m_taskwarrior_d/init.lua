@@ -96,6 +96,7 @@ function M.view_task()
     return
   end
   local md_table = {}
+  local fields_has_date = { "start", "due", "end", "wait", "until", "scheduled", "entry", "modified" }
   for k, v in pairs(task_info) do
     if type(v) == "table" then
       for i, j in ipairs(v) do
@@ -108,6 +109,10 @@ function M.view_task()
         table.insert(md_table, row)
       end
     else
+      if M.utils.contains(fields_has_date, k) then
+        local local_time = M.utils.convert_timestamp_utc_local(v)
+        v = os.date("%Y-%m-%d %H:%M", os.time(local_time))
+      end
       local row = k .. string.rep(" ", 15 - #k) .. " | " .. v
       table.insert(md_table, row)
     end
