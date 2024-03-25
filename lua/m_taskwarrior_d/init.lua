@@ -12,16 +12,19 @@ M._config = {
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
 }
 
-function M.sync_tasks()
-  local bufnr = vim.api.nvim_get_current_buf()
+function M.sync_tasks(start_position, end_position)
+  if start_position == nil then
+    start_position = 1
+  end
+  if end_position == nil then
+    end_position = vim.api.nvim_buf_line_count(0)
+  end
 
-  -- Get the lines in the buffer
-  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   -- Iterate through each line to get the number of leading spaces
-  for i, line in ipairs(lines) do
-    if string.match(line, M._config.checkbox_pattern.lua) then
-      local current_line, _ = M.utils.get_line(i)
-      M.utils.sync_task(current_line, i)
+  for line_number = start_position, end_position do
+    local current_line, _ = M.utils.get_line(line_number)
+    if string.match(current_line, M._config.checkbox_pattern.lua) then
+      M.utils.sync_task(current_line, line_number)
     end
   end
 end
@@ -218,6 +221,64 @@ function M.run_task(args)
   end
 end
 
+function M.run_task_bulk(args)
+  if #args == 0 then
+    local Input = require("nui.input")
+    local input = Input({
+      relative = "cursor",
+      position = 0,
+      size = {
+        width = 100,
+      },
+      border = {
+        style = "single",
+        text = {
+          top = "Run task",
+          top_align = "center",
+        },
+      },
+      win_options = {
+        winhighlight = "Normal:Normal,FloatBorder:Normal",
+      },
+    }, {
+      on_submit = function(value)
+        M.run_task({ value })
+      end,
+    })
+    input:mount()
+  else
+    -- local _, result = M.task.execute_taskwarrior_command(command, true)
+    -- if #result == 0 then
+    --   print("No task found")
+    --   return
+    -- end
+    local task_commands_not_to_display = { "add", "mod", "del", "purge" }
+    local good_command = false
+    local command = table.concat(args, " ")
+    for _, keyword in ipairs(task_commands_not_to_display) do
+      if string.find(command, keyword) then
+        good_command = true
+      end
+    end
+    if good_command then
+      local start_line = vim.fn.line("'<") -- Get the start line of the selection
+      local end_line = vim.fn.line("'>") -- Get the end line of the selection
+      local results = {}
+      for line_num = start_line, end_line do
+        local current_line, _ = M.utils.get_line(line_num)
+        local _, uuid = M.utils.extract_uuid(current_line)
+        if uuid ~= nil then
+          local _, result = M.task.execute_taskwarrior_command("task rc.confirmation=off " .. uuid .. " " .. command)
+          table.insert(results, result .. "\n")
+        end
+      end
+      for _, result in ipairs(results) do
+        print(result)
+      end
+    end
+  end
+end
+
 local function load_json_file(filename)
   local file = io.open(filename, "r")
   if file then
@@ -408,9 +469,15 @@ function M.setup(opts)
     local current_line, line_number = M.utils.get_line()
     M.utils.sync_task(current_line, line_number)
   end, {})
+  -- Should rename to TWSyncAll
   vim.api.nvim_create_user_command("TWSyncTasks", function()
     M.sync_tasks()
   end, {})
+  vim.api.nvim_create_user_command("TWSyncBulk", function()
+    local start_line = vim.fn.line("'<") -- Get the start line of the selection
+    local end_line = vim.fn.line("'>") -- Get the end line of the selection
+    M.sync_tasks(start_line, end_line)
+  end, { range = true })
   vim.api.nvim_create_user_command("TWUpdateCurrent", function()
     M.update_current_task()
   end, {})
@@ -437,6 +504,9 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWSavedQueries", function()
     M.toggle_saved_queries()
   end, {})
+  vim.api.nvim_create_user_command("TWRunBulk", function(args)
+    M.run_task_bulk(args.fargs)
+  end, { nargs = "*", range = true })
 end
 
 return M
