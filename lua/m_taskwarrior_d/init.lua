@@ -4,6 +4,7 @@ M.treesitter = require("m_taskwarrior_d.treesitter")
 M.utils = require("m_taskwarrior_d.utils")
 M.ui = require("m_taskwarrior_d.ui")
 M._concealTaskId = nil
+M.current_winid = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
   status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" },
@@ -118,7 +119,13 @@ function M.view_task()
     end
     table.insert(md_table, string.rep("-", 16) .. "|" .. string.rep("-", 62 - 17))
   end
-  M.ui.trigger_hover(md_table)
+  local popup = M.ui.trigger_hover(md_table, "Task " .. uuid)
+  vim.api.nvim_buf_set_option(popup.bufnr, "filetype", "markdown")
+  M.current_winid = popup.winid
+  local event = require("nui.utils.autocmd").event
+  popup:on(event.BufLeave, function()
+    M.current_winid = nil
+  end)
 end
 
 function M.run_with_current()
@@ -157,7 +164,6 @@ local function split_by_newline(input)
   for line in input:gmatch("[^\n]+") do
     table.insert(lines, line)
   end
-  table.insert(lines, #lines, string.rep("-", #lines[1]))
   return lines
 end
 
@@ -201,7 +207,143 @@ function M.run_task(args)
       end
     end
     result = split_by_newline(result)
-    M.ui.trigger_hover(result)
+    table.insert(result, #result, string.rep("-", #result[1]))
+    local popup = M.ui.trigger_hover(result)
+    M.current_winid = popup.winid
+    local event = require("nui.utils.autocmd").event
+    popup:on(event.BufLeave, function()
+      M.current_winid = nil
+    end)
+  end
+end
+
+local function load_json_file(filename)
+  local file = io.open(filename, "r")
+  if file then
+    local content = file:read("*all")
+    file:close()
+    return vim.json.decode(content)
+  else
+    return nil
+  end
+end
+
+function M.view_saved_queries()
+  local filename = vim.fn.stdpath("data") .. "/m_taskwarrior_d.json"
+  local queries = load_json_file(filename)
+  if queries == nil then
+    print("No saved queries found")
+    return
+  end
+  local Popup = require("nui.popup")
+  local event = require("nui.utils.autocmd").event
+
+  local popup = Popup({
+    enter = true,
+    focusable = true,
+    border = {
+      style = "rounded",
+      text = {
+        top = "Saved queries",
+        top_align = "center",
+      },
+    },
+    win_options = {
+      number = true,
+    },
+    position = "50%",
+    size = {
+      width = "60%",
+      height = "50%",
+    },
+  })
+  local saved_queries = {}
+  for _, query in ipairs(queries.saved_queries.data) do
+    table.insert(
+      saved_queries,
+      query.name .. string.rep(" ", queries.saved_queries.name_max_length - #query.name) .. " | " .. query.query
+    )
+  end
+  -- mount/open the component
+  popup:mount()
+  M.current_winid = popup.winid
+  vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, saved_queries)
+  vim.api.nvim_buf_set_name(popup.bufnr, "m_taskwarrior_d_saved_queries")
+  vim.api.nvim_buf_set_option(popup.bufnr, "filetype", "taskwarrior")
+  vim.api.nvim_buf_set_option(popup.bufnr, "buftype", "acwrite")
+  vim.api.nvim_buf_set_option(popup.bufnr, "bufhidden", "delete")
+  vim.api.nvim_buf_set_keymap(popup.bufnr, "n", "q", "<Cmd>q<CR>", { silent = true })
+  vim.cmd(string.format("autocmd BufModifiedSet <buffer=%s> set nomodified", popup.bufnr))
+  popup:on(event.BufWriteCmd, function()
+    local lines = vim.api.nvim_buf_get_lines(popup.bufnr, 0, -1, false)
+    local new_saved_queries = {}
+    local name_max_length = 0
+    for _, line in ipairs(lines) do
+      local name, query = string.match(line, "^(.*)|(.*)")
+      name = M.utils.trim(name)
+      query = M.utils.trim(query)
+      if #name > name_max_length then
+        name_max_length = #name
+      end
+      table.insert(new_saved_queries, { name = name, query = query })
+    end
+    queries.saved_queries.data = new_saved_queries
+    queries.saved_queries.name_max_length = name_max_length
+    local file = io.open(filename, "w")
+    if file ~= nil then
+      if queries ~= nil then
+        file:write(vim.json.encode(queries))
+      end
+      file:close()
+    end
+    M.current_winid = nil
+    popup:unmount()
+  end)
+
+  popup:on(event.BufLeave, function()
+    M.current_winid = nil
+    popup:unmount()
+  end)
+end
+
+function M.toggle_saved_queries()
+  local filename = vim.fn.stdpath("data") .. "/m_taskwarrior_d.json"
+  local save_file = load_json_file(filename)
+  local Menu = require("nui.menu")
+  local lines = {}
+  if save_file and save_file["saved_queries"] then
+    for _, query in ipairs(save_file.saved_queries.data) do
+      table.insert(lines, Menu.item(query.name, { query = query.query }))
+    end
+    local menu = Menu({
+      position = "50%",
+      size = {
+        width = 40,
+        height = 10,
+      },
+      border = {
+        style = "single",
+        text = {
+          top = "TaskWarrior Queries",
+          top_align = "center",
+        },
+      },
+      win_options = {
+        winhighlight = "Normal:Normal,FloatBorder:Normal",
+      },
+    }, {
+      lines = lines,
+      keymap = {
+        focus_next = { "j", "<Down>", "<Tab>" },
+        focus_prev = { "k", "<Up>", "<S-Tab>" },
+        close = { "<Esc>", "<C-c>" },
+        submit = { "<CR>", "<Space>" },
+      },
+      on_submit = function(item)
+        M.run_task({ item.query })
+      end,
+    })
+    menu:mount()
   end
 end
 
@@ -229,8 +371,20 @@ local function process_opts(opts)
     vim = M._config.checkbox_pattern.vim .. " (.*) " .. M._config.id_part_pattern.vim,
   }
 end
+local function create_save_file_if_not_exist()
+  local filename = vim.fn.stdpath("data") .. "/m_taskwarrior_d.json"
+  local save_file = { saved_queries = { name_max_length = 0, data = {} } }
+  if vim.fn.filereadable(filename) == 0 then
+    local file = io.open(filename, "w")
+    if file ~= nil then
+      file:write(vim.json.encode(save_file))
+      file:close()
+    end
+  end
+end
 
 function M.setup(opts)
+  create_save_file_if_not_exist()
   process_opts(opts)
   M.utils.set_config(M._config)
   M.task.set_config(M._config)
@@ -280,6 +434,17 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWRun", function(args)
     M.run_task(args.fargs)
   end, { nargs = "*" })
+  vim.api.nvim_create_user_command("TWFocusFloat", function()
+    if M.current_winid ~= nil then
+      vim.api.nvim_set_current_win(M.current_winid)
+    end
+  end, {})
+  vim.api.nvim_create_user_command("TWEditSavedQueries", function()
+    M.view_saved_queries()
+  end, {})
+  vim.api.nvim_create_user_command("TWSavedQueries", function()
+    M.toggle_saved_queries()
+  end, {})
 end
 
 return M
