@@ -246,6 +246,7 @@ function M.add_or_sync_task(line, replace_desc)
         uuid = new_task.uuid
         local spaces = count_leading_spaces(line)
         if replace_desc then
+          require("m_taskwarrior_d.task").modify_task(uuid, desc)
           result = string.rep(" ", spaces or 0)
             .. list_sb
             .. " ["
