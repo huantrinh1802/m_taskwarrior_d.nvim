@@ -399,15 +399,6 @@ function M.setup(opts)
       vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
     end,
   })
-  vim.api.nvim_create_autocmd({ "BufLeave" }, {
-    group = conceal_group,
-    pattern = "*.md", -- Pattern to match Markdown files
-    callback = function()
-      -- Get the file type of the current buffer
-      vim.opt.conceallevel = 0
-      vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=NONE ctermbg=NONE guibg=NONE]], false)
-    end,
-  })
 
   vim.api.nvim_create_user_command("TWToggle", function()
     M.toggle_task()
