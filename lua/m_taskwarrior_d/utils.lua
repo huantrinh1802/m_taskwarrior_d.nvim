@@ -6,6 +6,32 @@ M.task_pattern = {
   vim = M.checkbox_pattern.vim .. " (.*) " .. M.id_pattern.vim,
 }
 
+function M.convert_timestamp_utc_local(timestamp_utc)
+  local year = tonumber(string.sub(timestamp_utc, 1, 4))
+  local month = tonumber(string.sub(timestamp_utc, 5, 6))
+  local day = tonumber(string.sub(timestamp_utc, 7, 8))
+  local hour = tonumber(string.sub(timestamp_utc, 10, 11))
+  local min = tonumber(string.sub(timestamp_utc, 12, 13))
+  local sec = tonumber(string.sub(timestamp_utc, 14, 15))
+
+  -- Convert UTC time to local time
+  local utc_time = os.time({ year = year, month = month, day = day, hour = hour, min = min, sec = sec, dst = true })
+  -- Get the local timezone offset in seconds
+  local local_tz_offset = os.time() - os.time(os.date("!*t"))
+
+  -- Check if the local timezone is currently observing daylight saving time
+  local local_time = os.date("*t", os.time())
+  local local_dst = local_time.isdst
+
+  -- Adjust the offset if daylight saving time is in effect
+  if local_dst then
+    local_tz_offset = local_tz_offset + 3600 -- Add an hour for daylight saving time
+  end
+
+  -- Convert UTC time to local time by adding the timezone offset
+  return os.date("*t", utc_time + local_tz_offset) -- Convert UTC time to local time
+end
+
 function M.encode_patterns(str)
   local lua_pattern = str:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?%s%>]", "%%%1")
   lua_pattern = lua_pattern:gsub(" ", "%s")
@@ -59,7 +85,7 @@ function findIndex(table, searchString)
   return nil -- Return nil if the string is not found in the table
 end
 
-function contains(table, item)
+function M.contains(table, item)
   if #table == 0 then
     return false
   end
@@ -94,7 +120,7 @@ local function calculate_final_status(tasks)
   local pendingCount, startedCount, completedCount, deletedCount = 0, 0, 0, 0
   for _, task in ipairs(tasks) do
     if task.status == "pending" then
-      if task["tags"] ~= nil and contains(task.tags, "started") then
+      if task["tags"] ~= nil and M.contains(task.tags, "started") then
         startedCount = startedCount + 1
       else
         pendingCount = pendingCount + 1
@@ -208,7 +234,7 @@ function M.add_or_sync_task(line, replace_desc)
       if new_task then
         local started = false
         if new_task.status == "pending" and new_task["tags"] ~= nil then
-          started = contains(new_task["tags"], "started")
+          started = M.contains(new_task["tags"], "started")
         end
         local new_task_status_sym
         if not started then
