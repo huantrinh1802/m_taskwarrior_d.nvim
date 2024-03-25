@@ -292,9 +292,6 @@ function M.check_dependencies(line_number)
   local _, current_uuid = M.extract_uuid(current_line)
   local current_number_of_spaces = count_leading_spaces(current_line)
   local deps = {}
-  if current_uuid == nil then
-    return nil
-  end
   local count = 1
   local next_line = M.get_line(line_number + 1)
   if next_line == nil then
@@ -305,24 +302,19 @@ function M.check_dependencies(line_number)
     return nil, nil
   end
   local _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
-  local desc = string.gsub(next_line, M.checkbox_pattern.lua, "")
-  local _, next_uuid = M.extract_uuid(next_line)
   if checkbox == nil then
     return nil, nil
   end
   while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
-    if next_uuid == nil then
-      local result = M.add_or_sync_task(desc)
-      vim.api.nvim_buf_set_lines(0, line_number + count - 1, line_number + count, false, { result })
-    end
-    table.insert(deps, next_uuid)
+    local result = M.add_or_sync_task(next_line)
+    vim.api.nvim_buf_set_lines(0, line_number + count - 1, line_number + count, false, { result })
+    local _, generated_uuid = M.extract_uuid(result)
+    table.insert(deps, generated_uuid)
     count = count + 1
     next_line = M.get_line(line_number + count)
     if next_line ~= nil then
       next_number_of_spaces = count_leading_spaces(next_line)
-      _, next_uuid = M.extract_uuid(next_line)
       _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
-      desc = string.gsub(next_line, M.checkbox_pattern.lua, "")
     end
   end
   return current_uuid, deps

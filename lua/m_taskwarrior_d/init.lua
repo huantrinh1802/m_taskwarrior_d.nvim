@@ -20,7 +20,8 @@ function M.sync_tasks()
   -- Iterate through each line to get the number of leading spaces
   for i, line in ipairs(lines) do
     if string.match(line, M._config.checkbox_pattern.lua) then
-      M.utils.sync_task(line, i)
+      local current_line, _ = M.utils.get_line(i)
+      M.utils.sync_task(current_line, i)
     end
   end
 end
