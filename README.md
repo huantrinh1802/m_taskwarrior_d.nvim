@@ -180,6 +180,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
       - If nothing changes, nothing get updated
       - If the descriptions are different, it will update the description in the buffer as I prefer TaksWarrior to be source of truth
 - `:TWSyncCurrent`: similar to `TWSyncTasks` but only sync the current task
+- `:TWSyncBulk`: similar to `TWSyncTasks` but only sync the selected tasks in visual mode
 - `:TWUpdateCurrent`: quickly update the description of the task so you don't have to use the edit command
 - `:TWEditTask`: toggle a float window, which can edit the task.
   - Using the `task {id} edit` behind the scene
@@ -203,6 +204,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - `:wq` or `w` will save and close the buffer
   - The file is saved in `vim.fn.stdpath("data").."m_taskwarrior_d.nvim"`
 - `:TWSavedQueries`: will prompt a menu with the list of all saved queries, after an item is selected, a floating window will open with the output of `task {query}`
+- `:TWRunBulk`: similar to `TWRun`, but run commands on selected tasks in visual mode
 
 ### Task Dependencies
 
