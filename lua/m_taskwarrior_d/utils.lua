@@ -363,7 +363,6 @@ function M.render_tasks(tasks, depth)
   local markdown = {}
   for _, task in ipairs(tasks) do
     local started = false
-    print(vim.inspect(task['tags']))
     if task.status == "pending" and task["tags"] ~= nil then
       started = require('m_taskwarrior_d.utils').contains(task["tags"], "started")
     end
@@ -373,7 +372,7 @@ function M.render_tasks(tasks, depth)
     else
       new_task_status_sym = ">"
     end
-    table.insert(markdown, string.rep("  ", depth) .. "- ["..new_task_status_sym.."] " .. task.desc)
+    table.insert(markdown, string.rep("  ", depth) .. "- ["..new_task_status_sym.."] " .. task.desc .. " $id{"..task.uuid.."}")
     if task[1] then
       local nested_tasks = M.render_tasks(task, depth + 1)
       for _, nested_task in ipairs(nested_tasks) do

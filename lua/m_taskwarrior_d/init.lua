@@ -70,17 +70,16 @@ end
 function M.toggle_task()
   local current_line, line_number = M.utils.get_line()
   local _, uuid = M.utils.extract_uuid(current_line)
-  if uuid == nil then
-    current_line = M.utils.add_task(current_line)
-  end
-  local task = M.task.get_task_by(uuid)
-  if task and task["depends"] ~= nil then
-    print("This task has dependencies: " .. table.concat(task["depends"], ", "))
-    return nil
+  if uuid ~= nil then
+    local task = M.task.get_task_by(uuid)
+    if task and task["depends"] ~= nil then
+      print("This task has dependencies: " .. table.concat(task["depends"], ", "))
+      return nil
+    end
   end
   local new_status = M.utils.toggle_task_status(current_line, line_number)
   _, uuid = M.utils.extract_uuid(current_line)
-  if new_status ~= nil then
+  if new_status ~= nil and uuid ~= nil then
     M.task.modify_task_status(uuid, new_status)
     M.utils.update_related_tasks_statuses(uuid)
   end
@@ -409,6 +408,36 @@ function M.toggle_saved_queries()
   end
 end
 
+function M.query_tasks()
+  local current_line, line_number = M.utils.get_line()
+  local _, query = string.match(current_line, M._config["task_query_pattern"].lua)
+  local _, result = M.task.execute_taskwarrior_command("task " .. query .. " export", true)
+  if result == nil then
+    print("No results")
+    return
+  end
+  local tasks = vim.fn.json_decode(result)
+  local visited = {}
+  local final = {}
+  if tasks == nil then
+    print("No results")
+    return
+  end
+  for _, item in ipairs(tasks) do
+    if not visited[item.uuid] then
+      visited[item.uuid] = true
+      local hierarchy = M.utils.build_hierarchy(item, visited, tasks)
+      table.insert(final, hierarchy)
+    end
+  end
+  local markdown = M.utils.render_tasks(final)
+  local no_of_lines = vim.api.nvim_buf_line_count(0)
+  if no_of_lines == line_number then
+    vim.api.nvim_buf_set_lines(0, no_of_lines, no_of_lines, false, { "" })
+  end
+  vim.api.nvim_buf_set_lines(0, line_number + 1, line_number + 1, false, markdown)
+end
+
 local function process_opts(opts)
   if opts ~= nil then
     for k, v in pairs(opts) do
@@ -431,6 +460,10 @@ local function process_opts(opts)
   M._config["task_pattern"] = {
     lua = M._config.checkbox_pattern.lua .. " (.*) " .. M._config.id_part_pattern.lua,
     vim = M._config.checkbox_pattern.vim .. " (.*) " .. M._config.id_part_pattern.vim,
+  }
+  M._config["task_query_pattern"] = {
+    vim = "(\\$query{([^}]\\*)})",
+    lua = "(%$query{([^}]*)})",
   }
 end
 local function create_save_file_if_not_exist()
@@ -458,6 +491,7 @@ function M.setup(opts)
       -- Get the file type of the current buffer
       vim.opt.conceallevel = 2
       M._concealTaskId = vim.fn.matchadd("Conceal", "\\(\\$id{\\([0-9a-fA-F\\-]\\+\\)}\\)", 0, -1, { conceal = "" })
+      M._concealTaskQuery = vim.fn.matchadd("Conceal", "\\$query{[^\\}]\\*}", 0, -1, { conceal = "󰡦" })
       vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
     end,
   })
@@ -507,6 +541,9 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWRunBulk", function(args)
     M.run_task_bulk(args.fargs)
   end, { nargs = "*", range = true })
+  vim.api.nvim_create_user_command("TWQueryTasks", function()
+    M.query_tasks()
+  end, {})
 end
 
 return M
