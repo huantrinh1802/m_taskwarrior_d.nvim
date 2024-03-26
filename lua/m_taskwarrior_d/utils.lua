@@ -332,4 +332,56 @@ function M.sync_task(current_line, line_number)
   end
 end
 
+function M.build_hierarchy(item, visited, items)
+  local dependencies = item.depends
+  if not dependencies then
+    return { uuid = item.uuid, desc = item.description, status = item.status, tags = item.tags }
+  else
+    local hierarchy = { uuid = item.uuid, desc = item.description, status = item.status, tags = item.tags }
+    for _, dependency in ipairs(dependencies) do
+      if not visited[dependency] then
+        visited[dependency] = true
+        local dependent_item = nil
+        for _, v in ipairs(items) do
+          if v.uuid == dependency then
+            dependent_item = v
+            break
+          end
+        end
+        if dependent_item then
+          local dependent_hierarchy = M.build_hierarchy(dependent_item, visited, items)
+          table.insert(hierarchy, dependent_hierarchy)
+        end
+      end
+    end
+    return hierarchy
+  end
+end
+
+function M.render_tasks(tasks, depth)
+  depth = depth or 0
+  local markdown = {}
+  for _, task in ipairs(tasks) do
+    local started = false
+    print(vim.inspect(task['tags']))
+    if task.status == "pending" and task["tags"] ~= nil then
+      started = require('m_taskwarrior_d.utils').contains(task["tags"], "started")
+    end
+    local new_task_status_sym
+    if not started then
+      new_task_status_sym, _ = findPair(require('m_taskwarrior_d.utils').status_map, nil, task.status)
+    else
+      new_task_status_sym = ">"
+    end
+    table.insert(markdown, string.rep("  ", depth) .. "- ["..new_task_status_sym.."] " .. task.desc)
+    if task[1] then
+      local nested_tasks = M.render_tasks(task, depth + 1)
+      for _, nested_task in ipairs(nested_tasks) do
+        table.insert(markdown, nested_task)
+      end
+    end
+  end
+  return markdown
+end
+
 return M
