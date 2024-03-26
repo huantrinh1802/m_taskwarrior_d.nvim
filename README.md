@@ -13,13 +13,13 @@ The goals of this plugin are:
 
 ### Sync Tasks
 
-#### Before
+#### Before syncing
 
-![Before](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/%20BeforeSync.png)
+![BeforeSync](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/BeforeSync.png)
 
-#### After
+#### After syncing
 
-![After](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterSync.png)
+![AfterSync](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterSync.png)
 
 ### Quick View
 
@@ -29,24 +29,35 @@ The goals of this plugin are:
 
 ![EditTaskFloat](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/EditTask.png)
 
+### QueryView
+
+#### Before run TWQueryTasks
+
+![BeforeQuery](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/BeforeQueryView.png)
+
+#### After run TWQueryTasks
+
+![AfterQuery](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterQueryView.png)
+
+
 ## Features
 
 - [x] Injected and concealed TaskWarrior task
-- [ ] Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior
+- [x] Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior
   - [x] Work with Markdown with ( - [ ])
   - [ ] Docstring in Python
   - [ ] JSDoc in JavaScript
-- [>] Bidirectionally manage the task
+- [x] Bidirectionally manage the task
 - [>] Best effort to add contexts to the tasks:
   - [ ] Use treesitter for better capturing contexts
   - [ ] Tags
-  - [>] Dependencies
+  - [x] Dependencies
     - [x] Detect nested subtasks and update related tasks
-    - [ ] Render dependencies with query view
+    - [x] Render dependencies with query view
   - [ ] Project
 - [x] View individual task on hover
 - [x] Edit task detail within Neovim (through nui.nvim)
-- [ ] `Query View` similar to `dateview` in Obsidian or `Viewport` in Taskwiki
+- [x] `Query View` similar to `dateview` in Obsidian or `Viewport` in Taskwiki
 
 ## Maybe Feature
 
@@ -88,7 +99,6 @@ The goals of this plugin are:
 ```lua
 {
     "huantrinh1802/m_taskwarrior_d.nvim/",
-    ft = "markdown",
     dependencies = { "MunifTanjim/nui.nvim" },
     config = function()
     -- Require
@@ -196,7 +206,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - Run the command as follow `task {user input}`
     - If the command has `add`, `del`, `mod` or `purge`, the output will print out only
     - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or reenter the buffer
-- `:TWFocusFloat`: switch the focus to a floating window (or hover, triggered by `TWView`, `TWRunWithCurrent`, and `TWRun`). 
+- `:TWFocusFloat`: switch the focus to a floating window (or hover, triggered by `TWView`, `TWRunWithCurrent`, and `TWRun`).
 - `:TWEditSavedQueries`: display a buffer with list of saved queries. Each query should be a valid TaskWarrior query that can be run with `task {query}`
   - Each query can be edited and saved as you could with any buffer
   - The format is `[name of the query] | [the query]`
@@ -205,6 +215,9 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - The file is saved in `vim.fn.stdpath("data").."m_taskwarrior_d.nvim"`
 - `:TWSavedQueries`: will prompt a menu with the list of all saved queries, after an item is selected, a floating window will open with the output of `task {query}`
 - `:TWRunBulk`: similar to `TWRun`, but run commands on selected tasks in visual mode
+- `:TWQueryTasks`: similar to `taskwiki`'s viewport, render the output of the `task {query}` as the list of tasks
+  - Nested tasks are supported
+  - In-sync with where it is first created
 
 ### Task Dependencies
 
@@ -215,6 +228,12 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - [ ] Task 1.1 # Has none $id{53389315-5975-4db9-a796-1cd2514e1be1}
   - [ ] Task 1.2 # Has 1.2.1 as dependency $id{ea843624-37c0-429c-89c6-19f661149668}
     - [ ] Task 1.2.1 $id{792e57a6-ea55-4c9e-ab32-9e840d66088d}
+```
+
+### QueryView
+
+```markdown
+# Tasks that are in pending of project A $query{+PENDING project:A}
 ```
 
 ## License
