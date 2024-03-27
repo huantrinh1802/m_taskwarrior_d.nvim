@@ -39,7 +39,6 @@ The goals of this plugin are:
 
 ![AfterQuery](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterQueryView.png)
 
-
 ## Features
 
 - [x] Injected and concealed TaskWarrior task
@@ -73,7 +72,6 @@ The goals of this plugin are:
 
 - [TaksWarrior](https://taskwarrior.org/) (pre3.0) (hard required)
   - Have not tested v3.0 but it may have a breaking change due to its move to SQLite as the main storage engine
-- [jq](https://jqlang.github.io/jq/) (required)
 - [nui.nvim](https://github.com/MunifTanjim/nui.nvim)
   - For all UIs in the plugin
 
@@ -99,6 +97,7 @@ The goals of this plugin are:
 ```lua
 {
     "huantrinh1802/m_taskwarrior_d.nvim/",
+    version = "*",
     dependencies = { "MunifTanjim/nui.nvim" },
     config = function()
     -- Require
@@ -176,7 +175,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 ### Commands
 
 - `:TWToggle`: toggle status of task
-  - It also checks the parent task (if any) to determine the final status and apply it. The logic is as follows:
+  - If the task is registered in TaskWarrior, it also checks the parent task (if any) to determine the final status and apply it. The logic is as follows:
     - If there are any started tasks, it returns `started`.
     - If there are pending tasks but no started tasks, it returns `pending`.
     - If there are completed tasks, it returns `completed`.
@@ -200,12 +199,12 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - It will be dismissed once the cursor moves or reenter the buffer
 - `:TWRunWithCurrent`: extract the current UUID, and ask user for input. Run the command as follow `!task {uuid} {user input}`
 - `:TWRun`: there are two ways to use this command:
-  1. `TWRun` without any arguments, an input component will appear and ask for your command
+  - `TWRun` without any arguments, an input component will appear and ask for your command
     - Enter empty again, it will run `task`
-  2. `TWRun {command}`
-  - Run the command as follow `task {user input}`
-    - If the command has `add`, `del`, `mod` or `purge`, the output will print out only
-    - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or reenter the buffer
+  - `TWRun {command}`
+    - Run the command as follow `task {user input}`
+      - If the command has `add`, `del`, `mod` or `purge`, the output will print out only
+      - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or reenter the buffer
 - `:TWFocusFloat`: switch the focus to a floating window (or hover, triggered by `TWView`, `TWRunWithCurrent`, and `TWRun`).
 - `:TWEditSavedQueries`: display a buffer with list of saved queries. Each query should be a valid TaskWarrior query that can be run with `task {query}`
   - Each query can be edited and saved as you could with any buffer
@@ -233,7 +232,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 ### QueryView
 
 ```markdown
-# Tasks that are in pending of project A $query{+PENDING project:A}
+# Tasks that are in pending of project A $query{status:pending project:A}
 ```
 
 ## License
