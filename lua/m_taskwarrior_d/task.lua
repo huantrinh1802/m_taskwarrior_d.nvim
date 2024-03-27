@@ -91,15 +91,20 @@ function M.add_task_deps(current_task_id, deps)
 end
 
 function M.get_blocked_tasks_by(uuid)
-  local command = string.format("task export | jq '.[]|select(.depends | index(\"%s\"))' | jq -s", uuid)
+  local command = string.format("task depends:%s", uuid)
   local status, result = M.execute_taskwarrior_command(command, true)
   return status, result
 end
 
 function M.get_tasks_by(uuids)
-  local status, result =
-    M.execute_taskwarrior_command(string.format("task export | jq '.[] | select(.uuid | IN(%s))' | jq -s ", uuids), true)
-  return status, result
+  local tasks = {}
+  for _, uuid in ipairs(uuids) do
+    local _, result = M.execute_taskwarrior_command(string.format("task %s export", uuid), true)
+    if result then
+      table.insert(tasks, result[1])
+    end
+  end
+  return true, tasks
 end
 
 return M
