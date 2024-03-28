@@ -175,14 +175,7 @@ function M.update_related_tasks_statuses(uuid)
     tasks = vim.fn.json_decode(result)
   end
   for _, task in ipairs(tasks) do
-    local _, dependencies_result = task_mod.get_tasks_by(concat_with_quotes(task["depends"]))
-    local dependencies
-    if vim == nil then
-      local json = require("cjson")
-      dependencies = json.decode(dependencies_result)
-    else
-      dependencies = vim.fn.json_decode(dependencies_result)
-    end
+    local _, dependencies = task_mod.get_tasks_by(task["depends"])
     local new_status = calculate_final_status(dependencies)
     local line_number = find_pattern_line(task.uuid)
     new_status, _ = findPair(M.status_map, nil, new_status)

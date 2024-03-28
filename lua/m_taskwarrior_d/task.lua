@@ -46,10 +46,10 @@ function M.get_task_by(task_id, return_data)
 end
 -- Function to add a task
 function M.add_task(description)
-  description = require('m_taskwarrior_d.utils').trim(description)
+  description = require("m_taskwarrior_d.utils").trim(description)
   local command = string.format("task rc.verbose=new-uuid add '%s'", description)
   local _, result = M.execute_taskwarrior_command(command, true)
-  local task_uuid = string.match(result, '%x*-%x*-%x*-%x*-%x*')
+  local task_uuid = string.match(result, "%x*-%x*-%x*-%x*-%x*")
   return task_uuid
 end
 
@@ -91,7 +91,7 @@ function M.add_task_deps(current_task_id, deps)
 end
 
 function M.get_blocked_tasks_by(uuid)
-  local command = string.format("task depends:%s", uuid)
+  local command = string.format("task depends:%s export", uuid)
   local status, result = M.execute_taskwarrior_command(command, true)
   return status, result
 end
@@ -101,7 +101,15 @@ function M.get_tasks_by(uuids)
   for _, uuid in ipairs(uuids) do
     local _, result = M.execute_taskwarrior_command(string.format("task %s export", uuid), true)
     if result then
-      table.insert(tasks, result[1])
+      if vim == nil then
+        local json = require("cjson")
+        result = json.decode(result)
+      else
+        result = vim.fn.json_decode(result)
+      end
+      if result then
+        table.insert(tasks, result[1])
+      end
     end
   end
   return true, tasks
