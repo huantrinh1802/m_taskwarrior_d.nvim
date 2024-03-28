@@ -266,7 +266,7 @@ function M.add_or_sync_task(line, replace_desc)
     end
   end
   require("m_taskwarrior_d.task").modify_task_status(uuid, status)
-  return result
+  return result, uuid
 end
 
 function M.extract_uuid(line)
@@ -300,10 +300,9 @@ function M.check_dependencies(line_number)
     return nil, nil
   end
   while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
-    local result = M.add_or_sync_task(next_line)
+    local result, uuid = M.add_or_sync_task(next_line)
     vim.api.nvim_buf_set_lines(0, line_number + count - 1, line_number + count, false, { result })
-    local _, generated_uuid = M.extract_uuid(result)
-    table.insert(deps, generated_uuid)
+    table.insert(deps, uuid)
     count = count + 1
     next_line = M.get_line(line_number + count)
     if next_line ~= nil then
@@ -315,7 +314,7 @@ function M.check_dependencies(line_number)
 end
 
 function M.sync_task(current_line, line_number)
-  local result = M.add_or_sync_task(current_line)
+  local result, _ = M.add_or_sync_task(current_line)
   if result then
     vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
   end
@@ -357,15 +356,18 @@ function M.render_tasks(tasks, depth)
   for _, task in ipairs(tasks) do
     local started = false
     if task.status == "pending" and task["tags"] ~= nil then
-      started = require('m_taskwarrior_d.utils').contains(task["tags"], "started")
+      started = require("m_taskwarrior_d.utils").contains(task["tags"], "started")
     end
     local new_task_status_sym
     if not started then
-      new_task_status_sym, _ = findPair(require('m_taskwarrior_d.utils').status_map, nil, task.status)
+      new_task_status_sym, _ = findPair(require("m_taskwarrior_d.utils").status_map, nil, task.status)
     else
       new_task_status_sym = ">"
     end
-    table.insert(markdown, string.rep("  ", depth) .. "- ["..new_task_status_sym.."] " .. task.desc .. " $id{"..task.uuid.."}")
+    table.insert(
+      markdown,
+      string.rep("  ", depth) .. "- [" .. new_task_status_sym .. "] " .. task.desc .. " $id{" .. task.uuid .. "}"
+    )
     if task[1] then
       local nested_tasks = M.render_tasks(task, depth + 1)
       for _, nested_task in ipairs(nested_tasks) do
@@ -374,6 +376,34 @@ function M.render_tasks(tasks, depth)
     end
   end
   return markdown
+end
+
+function M.apply_context_data(line, line_number)
+  local _, query = string.match(line, M["task_query_pattern"].lua)
+  query = query.gsub(query, 'status:.*%s', ' ')
+  local count = 1
+  local uuid = nil
+  local tasks = {}
+  local next_line, next_line_number = M.get_line(line_number+count)
+  local block_ended = true
+  if #next_line == 0 or next_line == ' ' then
+    block_ended = false
+  end
+  local no_of_lines = vim.api.nvim_buf_line_count(0)
+  while not block_ended and next_line_number <= no_of_lines do
+    _, uuid = M.extract_uuid(next_line)
+    if uuid then
+      table.insert(tasks, uuid)
+    end
+    count = count + 1
+    next_line, next_line_number = M.get_line(line_number+count)
+    if next_line == ' ' then
+      block_ended = true
+    end
+  end
+  for _, task_uuid in ipairs(tasks) do
+    require("m_taskwarrior_d.task").execute_taskwarrior_command("task "..task_uuid.." mod "..query)
+  end
 end
 
 return M

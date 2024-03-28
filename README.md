@@ -49,11 +49,11 @@ The goals of this plugin are:
 - [x] Bidirectionally manage the task
 - [>] Best effort to add contexts to the tasks:
   - [ ] Use treesitter for better capturing contexts
-  - [ ] Tags
+  - [x] Tags
   - [x] Dependencies
     - [x] Detect nested subtasks and update related tasks
     - [x] Render dependencies with query view
-  - [ ] Project
+  - [x] Project
 - [x] View individual task on hover
 - [x] Edit task detail within Neovim (through nui.nvim)
 - [x] `Query View` similar to `dateview` in Obsidian or `Viewport` in Taskwiki
@@ -188,6 +188,14 @@ If you are using `obsidian.nvim`, you can use the following configuration:
     - If the task is in Takswarrior:
       - If nothing changes, nothing get updated
       - If the descriptions are different, it will update the description in the buffer as I prefer TaksWarrior to be source of truth
+  - If any headers have QueryView, the tasks in the scope of the headers (surrounded by 2 empty lines, according to Markdown) will be modified with such query, except for `status:*`.
+    - For example,
+
+    ```markdown
+      # Project pending tasks for project A $query{status:pending project:A}
+    ```
+
+    - Any tasks under the header will be assigned to project A
 - `:TWSyncCurrent`: similar to `TWSyncTasks` but only sync the current task
 - `:TWSyncBulk`: similar to `TWSyncTasks` but only sync the selected tasks in visual mode
 - `:TWUpdateCurrent`: quickly update the description of the task so you don't have to use the edit command
