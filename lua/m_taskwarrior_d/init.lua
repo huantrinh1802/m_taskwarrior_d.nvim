@@ -19,13 +19,19 @@ function M.sync_tasks(start_position, end_position)
   if end_position == nil then
     end_position = vim.api.nvim_buf_line_count(0)
   end
-
+  local headers = {}
   -- Iterate through each line to get the number of leading spaces
   for line_number = start_position, end_position do
     local current_line, _ = M.utils.get_line(line_number)
     if string.match(current_line, M._config.checkbox_pattern.lua) then
       M.utils.sync_task(current_line, line_number)
     end
+    if string.match(current_line, M._config.task_query_pattern.lua) then
+      table.insert(headers, {line = current_line, line_number = line_number})
+    end
+  end
+  for _, header in pairs(headers) do
+    M.utils.apply_context_data(header.line, header.line_number)
   end
 end
 
@@ -61,7 +67,7 @@ function M.edit_task()
   vim.cmd("term " .. "task " .. uuid .. " edit")
   vim.cmd("startinsert")
   popup:on(event.TermClose, function()
-    local synced_result = M.utils.add_or_sync_task(current_line)
+    local synced_result, _ = M.utils.add_or_sync_task(current_line)
     vim.api.nvim_buf_set_lines(current_buffer, current_line_number - 1, current_line_number, false, { synced_result })
     popup:unmount()
   end)
@@ -87,7 +93,7 @@ end
 
 function M.update_current_task()
   local current_line, line_number = M.utils.get_line()
-  local result = M.utils.add_or_sync_task(current_line, true)
+  local result, _ = M.utils.add_or_sync_task(current_line, true)
   vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
 end
 
@@ -466,6 +472,7 @@ local function process_opts(opts)
     lua = "(%$query{([^}]*)})",
   }
 end
+
 local function create_save_file_if_not_exist()
   local filename = vim.fn.stdpath("data") .. "/m_taskwarrior_d.json"
   local save_file = { saved_queries = { name_max_length = 0, data = {} } }
