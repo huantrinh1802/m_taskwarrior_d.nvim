@@ -91,7 +91,7 @@ function M.add_task_deps(current_task_id, deps)
 end
 
 function M.get_blocked_tasks_by(uuid)
-  local command = string.format("task depends:%s export", uuid)
+  local command = string.format("task depends.has:%s export", uuid)
   local status, result = M.execute_taskwarrior_command(command, true)
   return status, result
 end

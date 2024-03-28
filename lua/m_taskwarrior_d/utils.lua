@@ -131,17 +131,16 @@ local function calculate_final_status(tasks)
       deletedCount = deletedCount + 1
     end
   end
-  if startedCount > 0 then
-    return "started"
-  elseif pendingCount > 0 then
+  if pendingCount == #tasks then
     return "pending"
-  elseif completedCount > 0 then
-    return "completed"
-  elseif deletedCount > 0 then
-    return "deleted"
-  else
-    return "unknown" -- or any other default value
   end
+  if completedCount == #tasks or (completedCount > 0 and (completedCount + deletedCount) == #tasks) then
+    return "completed"
+  end
+  if deletedCount == #tasks then
+    return "deleted"
+  end
+  return "started"
 end
 
 local function find_pattern_line(pattern)
