@@ -27,7 +27,7 @@ function M.sync_tasks(start_position, end_position)
       M.utils.sync_task(current_line, line_number)
     end
     if string.match(current_line, M._config.task_query_pattern.lua) then
-      table.insert(headers, {line = current_line, line_number = line_number})
+      table.insert(headers, { line = current_line, line_number = line_number })
     end
   end
   for _, header in pairs(headers) do
@@ -77,7 +77,7 @@ function M.toggle_task()
   local current_line, line_number = M.utils.get_line()
   local _, uuid = M.utils.extract_uuid(current_line)
   if uuid ~= nil then
-    local task = M.task.get_task_by(uuid, 'task')
+    local task = M.task.get_task_by(uuid, "task")
     if task and task["depends"] ~= nil then
       print("This task has dependencies: " .. table.concat(task["depends"], ", "))
       return nil
@@ -373,7 +373,36 @@ function M.view_saved_queries()
   end)
 end
 
-function M.toggle_saved_queries()
+function M.start_scratch(query)
+  local Split = require("nui.split")
+
+  local event = require("nui.utils.autocmd").event
+  local split = Split({
+    enter = true,
+    relative = "editor",
+    -- win_options = {
+    --   number = true,
+    -- },
+    position = "right",
+    size = "33%",
+    -- buf_options = {
+    --   filetype = "markdown",
+    --   buftype = "acwrite",
+    --   bufhidden = "delete",
+    -- },
+  })
+  if M.scratch then
+    M.scratch:unmount()
+  end
+  split:mount()
+  M.scratch = split
+  vim.api.nvim_buf_set_keymap(split.bufnr, "n", "q", "<Cmd>q<CR>", { silent = true })
+  vim.cmd("edit " .. vim.fn.stdpath("data") .. "/m_taskwarrior_d.md")
+  vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "# Task $query{" .. query .. "}" })
+  vim.cmd("TWQueryTasks")
+end
+
+function M.toggle_saved_queries(type)
   local filename = vim.fn.stdpath("data") .. "/m_taskwarrior_d.json"
   local save_file = load_json_file(filename)
   local Menu = require("nui.menu")
@@ -407,7 +436,11 @@ function M.toggle_saved_queries()
         submit = { "<CR>", "<Space>" },
       },
       on_submit = function(item)
-        M.run_task({ item.query })
+        if type == "default" or type == nil then
+          M.run_task({ item.query })
+        elseif type == "split" then
+          M.start_scratch(item.query)
+        end
       end,
     })
     menu:mount()
@@ -498,7 +531,7 @@ function M.setup(opts)
       -- Get the file type of the current buffer
       vim.opt.conceallevel = 2
       M._concealTaskId = vim.fn.matchadd("Conceal", "\\(\\$id{\\([0-9a-fA-F\\-]\\+\\)}\\)", 0, -1, { conceal = "" })
-      M._concealTaskQuery = vim.fn.matchadd("Conceal", "\\$query{[^\\}]\\*}", 0, -1, { conceal = "󰡦" })
+      M._concealTaskQuery = vim.fn.matchadd("Conceal", "\\$query{[^\\}]\\+}", 0, -1, { conceal = "󰡦" })
       vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
     end,
   })
@@ -551,6 +584,25 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWQueryTasks", function()
     M.query_tasks()
   end, {})
+    vim.api.nvim_create_user_command("TWTaskScratch", function()
+    M.toggle_saved_queries('split')
+  end, {})
+  vim.api.nvim_create_user_command("TWScratchShow", function()
+    if require("m_taskwarrior_d.init").scratch then
+      require("m_taskwarrior_d.init").scratch:show()
+    else
+      print("No scratch window")
+    end
+    print(require("m_taskwarrior_d.init").scratch)
+  end, {})
+  vim.api.nvim_create_user_command("TWScratchHide", function()
+    if require("m_taskwarrior_d.init").scratch then
+      require("m_taskwarrior_d.init").scratch:hide()
+    else
+      print("No scratch window")
+    end
+  end, {})
+
 end
 
 return M

@@ -225,7 +225,11 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 - `:TWQueryTasks`: similar to `taskwiki`'s viewport, render the output of the `task {query}` as the list of tasks
   - Nested tasks are supported
   - In-sync with where it is first created
-
+- `:TWTaskScratch`: prompt a menu with the list of all saved queries, after an item is selected, a split window will open and render out the tasks of the selected query
+  - What it does is open a temporary file in `vim.fn.stdpath("data").."/m_taskwarrior_d.md"`, append the selected query and run `TWQueryTasks` on it
+  - There are two additional commands to use with the scratch window:
+    - `:TWScratchShow`: to show the hidden scratch window
+    - `:TWScratchHide`: to hide the scratch window
 ### Task Dependencies
 
 - Nested checkboxes are depended on the parent checkbox
