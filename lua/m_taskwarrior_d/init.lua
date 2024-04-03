@@ -450,6 +450,11 @@ end
 function M.query_tasks()
   local current_line, line_number = M.utils.get_line()
   local _, query = string.match(current_line, M._config["task_query_pattern"].lua)
+  if query == nil then
+    print("No query found in current line. Please go to the line contains ${}")
+    return
+  end
+  M.utils.delete_scoped_tasks(line_number)
   local _, result = M.task.execute_taskwarrior_command("task " .. query .. " export", true)
   if result == nil then
     print("No results")
