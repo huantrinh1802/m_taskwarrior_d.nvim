@@ -593,16 +593,15 @@ function M.setup(opts)
     M.toggle_saved_queries('split')
   end, {})
   vim.api.nvim_create_user_command("TWScratchShow", function()
-    if require("m_taskwarrior_d.init").scratch then
-      require("m_taskwarrior_d.init").scratch:show()
+    if require("m_taskwarrior_d").scratch then
+      require("m_taskwarrior_d").scratch:show()
     else
       print("No scratch window")
     end
-    print(require("m_taskwarrior_d.init").scratch)
   end, {})
   vim.api.nvim_create_user_command("TWScratchHide", function()
-    if require("m_taskwarrior_d.init").scratch then
-      require("m_taskwarrior_d.init").scratch:hide()
+    if require("m_taskwarrior_d").scratch then
+      require("m_taskwarrior_d").scratch:hide()
     else
       print("No scratch window")
     end
