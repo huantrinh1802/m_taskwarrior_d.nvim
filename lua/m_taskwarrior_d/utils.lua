@@ -405,4 +405,29 @@ function M.apply_context_data(line, line_number)
   end
 end
 
+function M.delete_scoped_tasks(line_number)
+  local count = 1
+  local start_line = nil
+  local end_line = nil
+  local no_of_lines = vim.api.nvim_buf_line_count(0)
+  if line_number == no_of_lines then
+    return
+  end
+  local next_line, next_line_number = M.get_line(line_number+count)
+  if #next_line == 0 or next_line == ' ' then
+    start_line = next_line_number
+  end
+  while end_line == nil and next_line_number <= no_of_lines do
+    count = count + 1
+    next_line, next_line_number = M.get_line(line_number+count)
+    if next_line == ' ' or next_line_number == no_of_lines then
+      end_line = next_line_number
+    end
+  end
+  if end_line == nil then
+    end_line = no_of_lines
+  end
+  vim.api.nvim_buf_set_lines(0, start_line - 1, end_line, false, {})
+end
+
 return M
