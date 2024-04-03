@@ -47,7 +47,7 @@ end
 -- Function to add a task
 function M.add_task(description)
   description = require("m_taskwarrior_d.utils").trim(description)
-  local command = string.format("task rc.verbose=new-uuid add '%s'", description)
+  local command = string.format("task rc.verbose=new-uuid add \"%s\"", description)
   local _, result = M.execute_taskwarrior_command(command, true)
   local task_uuid = string.match(result, "%x*-%x*-%x*-%x*-%x*")
   return task_uuid
@@ -67,7 +67,7 @@ function M.mark_task_done(task_id)
 end
 
 function M.modify_task(task_id, desc)
-  local command = string.format("task %s mod '%s'", task_id, desc)
+  local command = string.format("task %s mod \"%s\"", task_id, desc)
   local handle = io.popen(command)
   local result = handle:read("*a")
   handle:close()
