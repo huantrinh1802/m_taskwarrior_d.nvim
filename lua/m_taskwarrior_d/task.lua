@@ -60,17 +60,9 @@ function M.list_tasks()
   return result
 end
 
--- Function to mark a task as done
-function M.mark_task_done(task_id)
-  local command = string.format("task %s done", task_id)
-  local result = M.execute_taskwarrior_command(command)
-end
-
 function M.modify_task(task_id, desc)
   local command = string.format("task %s mod \"%s\"", task_id, desc)
-  local handle = io.popen(command)
-  local result = handle:read("*a")
-  handle:close()
+  M.execute_taskwarrior_command(command)
 end
 
 --Function to modify task's status completed, (pending), deleted, started, canceled
