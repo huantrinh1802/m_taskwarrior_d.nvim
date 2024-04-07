@@ -365,7 +365,7 @@ function M.render_tasks(tasks, depth)
     end
     table.insert(
       markdown,
-      string.rep("  ", depth) .. "- [" .. new_task_status_sym .. "] " .. task.desc .. " $id{" .. task.uuid .. "}"
+      string.rep(" ", vim.opt_local.shiftwidth._value * depth) .. "- [" .. new_task_status_sym .. "] " .. task.desc .. " $id{" .. task.uuid .. "}"
     )
     if task[1] then
       local nested_tasks = M.render_tasks(task, depth + 1)
