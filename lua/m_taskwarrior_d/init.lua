@@ -346,7 +346,7 @@ function M.view_saved_queries()
     local new_saved_queries = {}
     local name_max_length = 0
     for _, line in ipairs(lines) do
-      local name, query = string.match(line, "^(.*)|(.*)")
+      local name, query = string.match(line, "^([^|]*)|(.*)")
       name = M.utils.trim(name)
       query = M.utils.trim(query)
       if #name > name_max_length then
@@ -396,8 +396,12 @@ function M.start_scratch(query)
   end
   split:mount()
   M.scratch = split
+  vim.api.nvim_buf_set_option(split.bufnr, "buftype", "acwrite")
+  vim.api.nvim_buf_set_option(split.bufnr, "bufhidden", "delete")
   vim.api.nvim_buf_set_keymap(split.bufnr, "n", "q", "<Cmd>q<CR>", { silent = true })
+  vim.cmd(string.format("autocmd BufModifiedSet <buffer=%s> set nomodified noswapfile", split.bufnr))
   vim.cmd("edit " .. vim.fn.stdpath("data") .. "/m_taskwarrior_d.md")
+  vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "" })
   vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "# Task $query{" .. query .. "}" })
   vim.cmd("TWQueryTasks")
 end
@@ -432,12 +436,13 @@ function M.toggle_saved_queries(type)
       keymap = {
         focus_next = { "j", "<Down>", "<Tab>" },
         focus_prev = { "k", "<Up>", "<S-Tab>" },
-        close = { "<Esc>", "<C-c>" },
+        close = { "q", "<Esc>", "<C-c>" },
         submit = { "<CR>", "<Space>" },
       },
       on_submit = function(item)
         if type == "default" or type == nil then
-          M.run_task({ item.query })
+          local query = item.query:gsub('|', ' ')
+          M.run_task({ query })
         elseif type == "split" then
           M.start_scratch(item.query)
         end
@@ -455,7 +460,7 @@ function M.query_tasks()
     return
   end
   M.utils.delete_scoped_tasks(line_number)
-  local _, result = M.task.execute_taskwarrior_command("task " .. query .. " export " .. report, true)
+  local _, result = M.task.execute_taskwarrior_command("task " .. query .. " -TEMPLATE export " .. report, true)
   if result == nil then
     print("No results")
     return
