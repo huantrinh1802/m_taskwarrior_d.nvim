@@ -216,7 +216,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 - `:TWFocusFloat`: switch the focus to a floating window (or hover, triggered by `TWView`, `TWRunWithCurrent`, and `TWRun`).
 - `:TWEditSavedQueries`: display a buffer with list of saved queries. Each query should be a valid TaskWarrior query that can be run with `task {query}`
   - Each query can be edited and saved as you could with any buffer
-  - The format is `[name of the query] | [the query]`
+  - The format is `[name of the query] | [filters] | [report]`, don't include `[` and `]` in your actual query
   - `q` or `:q` will close thu buffer without saving any changes
   - `:wq` or `w` will save and close the buffer
   - The file is saved in `vim.fn.stdpath("data").."m_taskwarrior_d.nvim"`
