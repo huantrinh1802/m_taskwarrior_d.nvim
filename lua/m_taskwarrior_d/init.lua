@@ -626,6 +626,7 @@ function M.setup(opts)
       vim.opt.conceallevel = 2
       M._concealTaskId = vim.fn.matchadd("Conceal", "\\(\\$id{\\([0-9a-fA-F\\-]\\+\\)}\\)", 0, -1, { conceal = "" })
       M._concealTaskQuery = vim.fn.matchadd("Conceal", "\\$query{[^\\}]\\+}", 0, -1, { conceal = "󰡦" })
+      M._concealTaskQueryEnding = vim.fn.matchadd("Conceal", "\\$endquery", 0, -1, { conceal = "󰑀" })
       vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
     end,
   })

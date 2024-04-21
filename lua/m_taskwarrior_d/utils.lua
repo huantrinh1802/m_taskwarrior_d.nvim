@@ -398,6 +398,8 @@ function M.apply_context_data(line, line_number)
     next_line, next_line_number = M.get_line(line_number+count)
     if next_line == ' ' then
       block_ended = true
+    elseif next_line and next_line:find("$endquery") then
+      block_ended = true
     end
   end
   for _, task_uuid in ipairs(tasks) do
