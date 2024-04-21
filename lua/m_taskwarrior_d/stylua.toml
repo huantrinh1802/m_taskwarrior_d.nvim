@@ -1,0 +1,87 @@
+
+# Set the column width for formatting
+column_width = 120
+
+# Specify the indentation width
+indent_width = 2
+
+# Specify whether to use tabs or spaces for indentation
+indent_type = "Spaces"
+
+# Specify the quote style for strings
+# quote_style = "AutoPreferDouble"
+#
+# # Specify whether to format tables in one line if possible
+# single_line_tables = true
+#
+# # Specify whether to format tables with multiple lines
+# multi_line_tables = true
+#
+# # Specify whether to format function arguments in one line if possible
+# single_line_function_args = false
+#
+# # Specify whether to format function arguments with multiple lines
+# multi_line_function_args = true
+#
+# # Specify whether to format function call arguments in one line if possible
+# single_line_table_args = false
+#
+# # Specify whether to format function call arguments with multiple lines
+# multi_line_table_args = true
+#
+# # Specify whether to format table constructors in one line if possible
+# single_line_constructors = false
+#
+# # Specify whether to format table constructors with multiple lines
+# multi_line_constructors = true
+#
+# # Specify whether to align table values
+# align_table_values = true
+#
+# # Specify whether to align table keys
+# align_table_keys = true
+#
+# # Specify whether to align function arguments
+# align_args = true
+#
+# # Specify whether to align function parameters
+# align_parameters = true
+#
+# # Specify whether to add a trailing comma in tables and function calls
+trailing_comma = false
+#
+# # Specify whether to break long function calls after the last comma
+# break_after_functioncall_lastsymbol = true
+#
+# # Specify whether to break long table constructors after the last comma
+# break_after_table_lastsymbol = true
+#
+# # Specify whether to break long expressions in one line
+# inline_table_limit = 40
+#
+# # Specify whether to wrap long lines
+# line_width = 120
+#
+# # Specify whether to align function parameters by default
+# lua_syntax_align_by_default = true
+#
+# # Specify whether to always align tables
+# lua_syntax_align_tables = true
+#
+# # Specify whether to always break function calls
+# lua_syntax_break_functioncall = true
+#
+# # Specify whether to always break table constructors
+# lua_syntax_break_table = true
+#
+# # Specify whether to break long function calls after the first comma
+# lua_syntax_break_functioncall_comma = true
+#
+# # Specify whether to break long table constructors after the first comma
+# lua_syntax_break_table_comma = true
+#
+# # Specify whether to align table values by default
+# lua_syntax_table_align_by_default = true
+#
+# # Specify whether to always align table values
+# lua_syntax_table_align_values = true
