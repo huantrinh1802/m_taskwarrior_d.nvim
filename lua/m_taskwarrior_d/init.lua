@@ -10,6 +10,9 @@ M._config = {
   status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" },
   id_pattern = { vim = "\\x*-\\x*-\\x*-\\x*-\\x*", lua = "%x*-%x*-%x*-%x*-%x*" },
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
+  task_whitelist_path = { },
+  view_task_config = { total_width = 62, head_width = 15 },
+  fields_order = { "project", "description", "urgency", "status", "tags", "annotations" }
 }
 
 function M.sync_tasks(start_position, end_position)
@@ -97,6 +100,22 @@ function M.update_current_task()
   vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
 end
 
+local function find_next_index(item, inserted_list, table)
+  if inserted_list[item] == nil then
+    return nil
+  end
+  local loc = 1
+  for _, v in ipairs(M._config.fields_order) do
+    if inserted_list[v] ~= false then
+      loc = loc + inserted_list[v]
+    end
+    if v == item then
+      return loc
+    end
+  end
+  return nil
+end
+
 function M.view_task()
   local current_line = vim.api.nvim_get_current_line()
   local conceal, uuid = M.utils.extract_uuid(current_line)
@@ -107,26 +126,82 @@ function M.view_task()
   end
   local md_table = {}
   local fields_has_date = { "start", "due", "end", "wait", "until", "scheduled", "entry", "modified" }
+  local inserted = {}
+  for _, v in ipairs(M._config.fields_order) do
+    inserted[v] = false
+  end
   for k, v in pairs(task_info) do
+    local loc = find_next_index(k, inserted, md_table) or #md_table + 1 
+    local number_of_lines = 0
     if type(v) == "table" then
       for i, j in ipairs(v) do
-        local row
-        if i == 1 then
-          row = k .. string.rep(" ", 15 - #k) .. " | " .. j
-        else
-          row = string.rep(" ", 15) .. " | " .. j
+        if i ~= 1 then
+          loc = loc + 1
         end
-        table.insert(md_table, row)
+        local row
+        if type(j) == "table" then
+          j = j.description
+        end
+        local head = ""
+        if i == 1 then
+          head = k .. string.rep(" ", M._config.view_task_config.head_width - #k)
+        else
+          head = string.rep(" ", M._config.view_task_config.head_width)
+        end
+        if #j > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 5 then
+          row = head
+            .. " | - "
+            .. j:sub(1, M._config.view_task_config.total_width - M._config.view_task_config.head_width - 5)
+          row = row:gsub("$%s+", "")
+          table.insert(md_table, loc, row)
+          loc = loc + 1
+          number_of_lines = number_of_lines + 1
+          head = string.rep(" ", M._config.view_task_config.head_width)
+          row = nil
+          row = head
+            .. " |"
+            .. j:sub(M._config.view_task_config.total_width - M._config.view_task_config.head_width - 4)
+        else
+          row = head .. " | - " .. j
+        end
+        if row ~= nil then
+          table.insert(md_table, loc, row)
+        end
+        number_of_lines = number_of_lines + 1
       end
     else
       if M.utils.contains(fields_has_date, k) then
         local local_time = M.utils.convert_timestamp_utc_local(v)
         v = os.date("%Y-%m-%d %H:%M", os.time(local_time))
       end
-      local row = k .. string.rep(" ", 15 - #k) .. " | " .. v
-      table.insert(md_table, row)
+      local row = nil
+      local head = k .. string.rep(" ", M._config.view_task_config.head_width - #k)
+      if
+        type(v) == "string" and #v > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3
+      then
+        row = head
+          .. " | "
+          .. v:sub(1, M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3)
+        row = row:gsub("$%s+", "")
+        table.insert(md_table, loc, row)
+        loc = loc + 1
+        number_of_lines = number_of_lines + 1
+        head = string.rep(" ", M._config.view_task_config.head_width)
+        row = head .. " |" .. v:sub(M._config.view_task_config.total_width - M._config.view_task_config.head_width - 2)
+      else
+        row = head .. " | " .. v
+      end
+      table.insert(md_table, loc, row)
+      number_of_lines = number_of_lines + 1
+      inserted[k] = number_of_lines + 1
     end
-    table.insert(md_table, string.rep("-", 16) .. "|" .. string.rep("-", 62 - 17))
+    table.insert(
+      md_table,
+      loc + 1,
+      string.rep("-", M._config.view_task_config.head_width + 1)
+        .. "|--"
+        .. string.rep("-", M._config.view_task_config.total_width - M._config.view_task_config.head_width)
+    )
   end
   local popup = M.ui.trigger_hover(md_table, "Task " .. uuid)
   vim.api.nvim_buf_set_option(popup.bufnr, "filetype", "markdown")
@@ -441,7 +516,7 @@ function M.toggle_saved_queries(type)
       },
       on_submit = function(item)
         if type == "default" or type == nil then
-          local query = item.query:gsub('|', ' ')
+          local query = item.query:gsub("|", " ")
           M.run_task({ query })
         elseif type == "split" then
           M.start_scratch(item.query)
