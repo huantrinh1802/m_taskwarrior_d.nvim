@@ -70,7 +70,7 @@ The goals of this plugin are:
 
 ## Dependencies
 
-- [TaksWarrior](https://taskwarrior.org/) (pre3.0) (hard required)
+- [TaskWarrior](https://taskwarrior.org/) (pre3.0) (hard required)
   - Have not tested v3.0 but it may have a breaking change due to its move to SQLite as the main storage engine
 - [nui.nvim](https://github.com/MunifTanjim/nui.nvim)
   - For all UIs in the plugin
@@ -185,9 +185,9 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - There are a few scenarios, that may happen:
     - If the task is not in TaskWarrior, and doesn't have UUID, it will add the task to TaskWarrior and add the UUID to the buffer
     - If the task is not in TaskWarrior, but have UUID in the follow format `$id{uuid}` then it will add the task to TaskWarrior and update the UUID
-    - If the task is in Takswarrior:
+    - If the task is in Taskwarrior:
       - If nothing changes, nothing get updated
-      - If the descriptions are different, it will update the description in the buffer as I prefer TaksWarrior to be source of truth
+      - If the descriptions are different, it will update the description in the buffer as I prefer TaskWarrior to be source of truth
   - If any headers have QueryView, the tasks in the scope of the headers (surrounded by 2 empty lines, according to Markdown) will be modified with such query, except for `status:*`.
     - For example,
 
