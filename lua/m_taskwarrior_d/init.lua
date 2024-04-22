@@ -13,6 +13,7 @@ M._config = {
   task_whitelist_path = { },
   view_task_config = { total_width = 62, head_width = 15 },
   fields_order = { "project", "description", "urgency", "status", "tags", "annotations" }
+
 }
 
 function M.sync_tasks(start_position, end_position)
@@ -564,6 +565,7 @@ function M.query_tasks()
     end
   end
   local markdown = M.utils.render_tasks(final)
+  table.insert(markdown, "")
   local no_of_lines = vim.api.nvim_buf_line_count(0)
   if no_of_lines == line_number then
     vim.api.nvim_buf_set_lines(0, no_of_lines, no_of_lines, false, { "" })
