@@ -1,4 +1,4 @@
-# Mark TaskWarrior Down in Neovim
+# Mark Taskwarrior Down in Neovim
 
 ## Description
 
@@ -41,8 +41,8 @@ The goals of this plugin are:
 
 ## Features
 
-- [x] Injected and concealed TaskWarrior task
-- [x] Dectect task (checkbox) in Markdown or similar files and register the task into TaskWarrior
+- [x] Injected and concealed Taskwarrior task
+- [x] Dectect task (checkbox) in Markdown or similar files and register the task into Taskwarrior
   - [x] Work with Markdown with ( - [ ])
   - [ ] Docstring in Python
   - [ ] JSDoc in JavaScript
@@ -60,9 +60,9 @@ The goals of this plugin are:
 
 ## Maybe Feature
 
-- Interface for displaying TaskWarrior reports
+- Interface for displaying Taskwarrior reports
 - Query tasks to other pages similar to viewport in `taskwiki` or `dateview` in Obsidian
-- Better UI for advance taskwarrior usage such as overdue, waiting, and more
+- Better UI for advance Taskwarrior usage such as overdue, waiting, and more
 
 ## Out of scope
 
@@ -70,7 +70,7 @@ The goals of this plugin are:
 
 ## Dependencies
 
-- [TaskWarrior](https://taskwarrior.org/) (pre3.0) (hard required)
+- [Taskwarrior](https://taskwarrior.org/) (pre3.0) (hard required)
   - Have not tested v3.0 but it may have a breaking change due to its move to SQLite as the main storage engine
 - [nui.nvim](https://github.com/MunifTanjim/nui.nvim)
   - For all UIs in the plugin
@@ -87,7 +87,7 @@ The goals of this plugin are:
 ## Similar To
 
 - [taskwiki](https://github.com/tools-life/taskwiki)
-  - This plugin provides better utilities for managing tasks in Markdown files with TaskWarrior
+  - This plugin provides better utilities for managing tasks in Markdown files with Taskwarrior
   - Reasons I decided not to use this plugin:
     - Rely on [Vimwiki](https://github.com/vimwiki/vimwiki), which has wonky interactions with `obsidian.nvim` and `mkdnflow.nvim` (due to special filetype `vimwiki`)
     - Disclaimer: there may be a way to configure to make Vimwiki and markdown plugins to work together but I decided to write m_taskwarrior_d.nvim
@@ -175,7 +175,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 ### Commands
 
 - `:TWToggle`: toggle status of task
-  - If the task is registered in TaskWarrior, it also checks the parent task (if any) to determine the final status and apply it. The logic is as follows:
+  - If the task is registered in Taskwarrior, it also checks the parent task (if any) to determine the final status and apply it. The logic is as follows:
     - If there are any started tasks, it returns `started`.
     - If there are pending tasks but no started tasks, it returns `pending`.
     - If there are completed tasks, it returns `completed`.
@@ -183,11 +183,11 @@ If you are using `obsidian.nvim`, you can use the following configuration:
     - If none of the above conditions are met, it returns "unknown" (or any other default value).
 - `:TWSyncTasks`: traverse the current buffer and sync all tasks
   - There are a few scenarios, that may happen:
-    - If the task is not in TaskWarrior, and doesn't have UUID, it will add the task to TaskWarrior and add the UUID to the buffer
-    - If the task is not in TaskWarrior, but have UUID in the follow format `$id{uuid}` then it will add the task to TaskWarrior and update the UUID
+    - If the task is not in Taskwarrior, and doesn't have UUID, it will add the task to Taskwarrior and add the UUID to the buffer
+    - If the task is not in Taskwarrior, but have UUID in the follow format `$id{uuid}` then it will add the task to TaskWarrior and update the UUID
     - If the task is in Taskwarrior:
       - If nothing changes, nothing get updated
-      - If the descriptions are different, it will update the description in the buffer as I prefer TaskWarrior to be source of truth
+      - If the descriptions are different, it will update the description in the buffer as I prefer Taskwarrior to be source of truth
   - If any headers have QueryView, the tasks in the scope of the headers (surrounded by 2 empty lines, according to Markdown) will be modified with such query, except for `status:*`.
     - For example,
 
@@ -214,7 +214,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
       - If the command has `add`, `del`, `mod` or `purge`, the output will print out only
       - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or reenter the buffer
 - `:TWFocusFloat`: switch the focus to a floating window (or hover, triggered by `TWView`, `TWRunWithCurrent`, and `TWRun`).
-- `:TWEditSavedQueries`: display a buffer with list of saved queries. Each query should be a valid TaskWarrior query that can be run with `task {query}`
+- `:TWEditSavedQueries`: display a buffer with list of saved queries. Each query should be a valid Taskwarrior query that can be run with `task {query}`
   - Each query can be edited and saved as you could with any buffer
   - The format is `[name of the query] | [filters] | [report]`, don't include `[` and `]` in your actual query
   - `q` or `:q` will close thu buffer without saving any changes
