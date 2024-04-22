@@ -379,29 +379,33 @@ end
 
 function M.apply_context_data(line, line_number)
   local _, query = string.match(line, M["task_query_pattern"].lua)
-  query = query.gsub(query, 'status:.*%s', ' ')
+  query = query.gsub(query, "status:.*%s", " ")
   local count = 1
   local uuid = nil
   local tasks = {}
-  local next_line, next_line_number = M.get_line(line_number+count)
+  local next_line, next_line_number = M.get_line(line_number + count)
+  _, uuid = M.extract_uuid(next_line)
+  if uuid then
+    table.insert(tasks, uuid)
+  end
   local block_ended = true
-  if #next_line == 0 or next_line == ' ' then
+  if #next_line == 0 or next_line == " " then
     block_ended = false
   end
   local no_of_lines = vim.api.nvim_buf_line_count(0)
   while not block_ended and next_line_number <= no_of_lines do
+    count = count + 1
+    next_line, next_line_number = M.get_line(line_number + count)
+    if next_line_number == no_of_lines or #next_line == 0 or next_line == " " then
+      block_ended = true
+    end
     _, uuid = M.extract_uuid(next_line)
     if uuid then
       table.insert(tasks, uuid)
     end
-    count = count + 1
-    next_line, next_line_number = M.get_line(line_number+count)
-    if next_line == ' ' then
-      block_ended = true
-    end
   end
   for _, task_uuid in ipairs(tasks) do
-    require("m_taskwarrior_d.task").execute_taskwarrior_command("task "..task_uuid.." mod "..query)
+    require("m_taskwarrior_d.task").execute_taskwarrior_command("task " .. task_uuid .. " mod " .. query)
   end
 end
 
