@@ -10,11 +10,10 @@ M._config = {
   status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" },
   id_pattern = { vim = "\\x*-\\x*-\\x*-\\x*-\\x*", lua = "%x*-%x*-%x*-%x*-%x*" },
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
-  task_whitelist_path = { },
+  task_whitelist_path = {},
   view_task_config = { total_width = 62, head_width = 15 },
-  fields_order = { "project", "description", "urgency", "status", "tags", "annotations" }
-
-  floating_buffer_exit_keys = { "q", "<Esc>", "<C-c>" }
+  fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
+  floating_buffer_exit_keys = { "q", "<Esc>", "<C-c>" },
 }
 
 function M.sync_tasks(start_position, end_position)
