@@ -14,6 +14,7 @@ M._config = {
   view_task_config = { total_width = 62, head_width = 15 },
   fields_order = { "project", "description", "urgency", "status", "tags", "annotations" }
 
+  floating_buffer_exit_keys = { "q", "<Esc>", "<C-c>" }
 }
 
 function M.sync_tasks(start_position, end_position)
@@ -512,7 +513,7 @@ function M.toggle_saved_queries(type)
       keymap = {
         focus_next = { "j", "<Down>", "<Tab>" },
         focus_prev = { "k", "<Up>", "<S-Tab>" },
-        close = { "q", "<Esc>", "<C-c>" },
+        close = M._config.floating_buffer_exit_keys,
         submit = { "<CR>", "<Space>" },
       },
       on_submit = function(item)
