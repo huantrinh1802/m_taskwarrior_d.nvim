@@ -12,8 +12,8 @@ M._config = {
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
   task_whitelist_path = {},
   view_task_config = { total_width = 62, head_width = 15 },
-  fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
-  close_floating_buffer = { "q", "<Esc>", "<C-c>" },
+  task_view_fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
+  close_floating_window = { "q", "<Esc>", "<C-c>" },
 }
 
 function M.sync_tasks(start_position, end_position)
@@ -106,7 +106,7 @@ local function find_next_index(item, inserted_list, table)
     return nil
   end
   local loc = 1
-  for _, v in ipairs(M._config.fields_order) do
+  for _, v in ipairs(M._config.task_view_fields_order) do
     if inserted_list[v] ~= false then
       loc = loc + inserted_list[v]
     end
@@ -128,7 +128,7 @@ function M.view_task()
   local md_table = {}
   local fields_has_date = { "start", "due", "end", "wait", "until", "scheduled", "entry", "modified" }
   local inserted = {}
-  for _, v in ipairs(M._config.fields_order) do
+  for _, v in ipairs(M._config.task_view_fields_order) do
     inserted[v] = false
   end
   for k, v in pairs(task_info) do
@@ -512,7 +512,7 @@ function M.toggle_saved_queries(type)
       keymap = {
         focus_next = { "j", "<Down>", "<Tab>" },
         focus_prev = { "k", "<Up>", "<S-Tab>" },
-        close = M._config.close_floating_buffer,
+        close = M._config.close_floating_window,
         submit = { "<CR>", "<Space>" },
       },
       on_submit = function(item)
