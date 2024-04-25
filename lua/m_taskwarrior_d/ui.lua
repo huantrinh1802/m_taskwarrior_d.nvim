@@ -43,7 +43,7 @@ function M.trigger_hover(contents, title)
   popup:mount()
 
   vim.api.nvim_buf_set_lines(popup.bufnr, 0, 1, false, contents)
-  for _, key in ipairs(M._config.close_floating_buffer) do
+  for _, key in ipairs(M._config.close_floating_window) do
     vim.api.nvim_buf_set_keymap(popup.bufnr, "n", key, "<Cmd>q<CR>", { silent = true })
   end
   return popup

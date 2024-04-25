@@ -417,16 +417,19 @@ function M.delete_scoped_tasks(line_number)
   if line_number == no_of_lines then
     return
   end
-  local next_line, next_line_number = M.get_line(line_number+count)
-  if #next_line == 0 or next_line == ' ' then
+  local next_line, next_line_number = M.get_line(line_number + count)
+  if #next_line == 0 or next_line == " " then
     start_line = next_line_number
+  else
+    vim.api.nvim_buf_set_lines(0, line_number, line_number, false, {''})
+    return
   end
-  while end_line == nil and next_line_number <= no_of_lines do
+  while end_line == nil and next_line_number < no_of_lines do
     count = count + 1
-    next_line, next_line_number = M.get_line(line_number+count)
+    next_line, next_line_number = M.get_line(line_number + count)
     local list_sb, _, status = string.match(next_line, M.checkbox_pattern.lua)
-    if #next_line == 0 or next_line == ' ' or next_line_number == no_of_lines or list_sb == nil then
-      end_line = next_line_number
+    if #next_line > 0 and next_line ~= " " and list_sb == nil then
+      end_line = next_line_number - 1
     end
   end
   if end_line == nil then
