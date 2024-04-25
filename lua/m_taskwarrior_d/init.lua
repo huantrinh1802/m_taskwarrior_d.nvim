@@ -528,13 +528,7 @@ function M.toggle_saved_queries(type)
   end
 end
 
-function M.query_tasks()
-  local current_line, line_number = M.utils.get_line()
-  local _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
-  if query == nil then
-    print("No query found in current line. Please go to the line contains ${}")
-    return
-  end
+function M.query_tasks(line_number, query, report)
   M.utils.delete_scoped_tasks(line_number)
   local _, result = M.task.execute_taskwarrior_command("task " .. query .. " -TEMPLATE export " .. report, true)
   if result == nil then
@@ -571,6 +565,16 @@ function M.query_tasks()
     vim.api.nvim_buf_set_lines(0, no_of_lines, no_of_lines, false, { "" })
   end
   vim.api.nvim_buf_set_lines(0, line_number + 1, line_number + 1, false, markdown)
+end
+
+function M.query_tasks_in_buffer()
+  for line_number = vim.api.nvim_buf_line_count(0), 1, -1 do
+    local current_line, _ = M.utils.get_line(line_number)
+    local _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
+    if query then
+      M.query_tasks(line_number, query, report)
+    end
+  end
 end
 
 local function process_opts(opts)
@@ -619,6 +623,7 @@ function M.setup(opts)
   process_opts(opts)
   M.utils.set_config(M._config)
   M.task.set_config(M._config)
+  M.ui.set_config(M._config)
   local conceal_group = vim.api.nvim_create_augroup("TWConceal", { clear = true })
   vim.api.nvim_create_autocmd({ "BufEnter" }, {
     group = conceal_group,
@@ -678,21 +683,31 @@ function M.setup(opts)
     M.run_task_bulk(args.fargs)
   end, { nargs = "*", range = true })
   vim.api.nvim_create_user_command("TWQueryTasks", function()
-    M.query_tasks()
+    local current_line, line_number = M.utils.get_line()
+    local _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
+    if query then
+      M.query_tasks(line_number, query, report)
+    else
+      print("No query found in current line. Please go to the line contains ${}")
+    end
   end, {})
-    vim.api.nvim_create_user_command("TWTaskScratch", function()
-    M.toggle_saved_queries('split')
+  vim.api.nvim_create_user_command("TWBufQueryTasks", function()
+    M.query_tasks_in_buffer()
+  end, {})
+
+  vim.api.nvim_create_user_command("TWTaskScratch", function()
+    M.toggle_saved_queries("split")
   end, {})
   vim.api.nvim_create_user_command("TWScratchShow", function()
-    if require("m_taskwarrior_d").scratch then
-      require("m_taskwarrior_d").scratch:show()
+    if M.scratch then
+      M.scratch:show()
     else
       print("No scratch window")
     end
   end, {})
   vim.api.nvim_create_user_command("TWScratchHide", function()
-    if require("m_taskwarrior_d").scratch then
-      require("m_taskwarrior_d").scratch:hide()
+    if M.scratch then
+      M.scratch:hide()
     else
       print("No scratch window")
     end
