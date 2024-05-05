@@ -135,6 +135,10 @@ The goals of this plugin are:
   task_statuses = { " ", ">", "x", "~" },
   -- The mapping between status and symbol in checkbox
   status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" },
+  -- The order of fields in task view via `TWView`
+  task_view_fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
+  -- The close key for floating window
+  close_floating_window = { "q", "<Esc>", "<C-c>" },
   -- More configurations will be added in the future
 }
 ```
@@ -204,7 +208,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - It will update the description in the buffer if you edited it in the popup
 - `:TWView`: a quick view of more details of the task
   - It is focusable so you can copy texts from their
-  - It will be dismissed once the cursor moves or reenter the buffer
+  - It will be dismissed once the cursor moves or re-enter the buffer
 - `:TWRunWithCurrent`: extract the current UUID, and ask user for input. Run the command as follow `!task {uuid} {user input}`
 - `:TWRun`: there are two ways to use this command:
   - `TWRun` without any arguments, an input component will appear and ask for your command
@@ -212,12 +216,12 @@ If you are using `obsidian.nvim`, you can use the following configuration:
   - `TWRun {command}`
     - Run the command as follow `task {user input}`
       - If the command has `add`, `del`, `mod` or `purge`, the output will print out only
-      - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or reenter the buffer
+      - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or re-enter the buffer
 - `:TWFocusFloat`: switch the focus to a floating window (or hover, triggered by `TWView`, `TWRunWithCurrent`, and `TWRun`).
 - `:TWEditSavedQueries`: display a buffer with list of saved queries. Each query should be a valid Taskwarrior query that can be run with `task {query}`
   - Each query can be edited and saved as you could with any buffer
-  - The format is `[name of the query] | [filters] | [report]`, don't include `[` and `]` in your actual query
-  - `q` or `:q` will close thu buffer without saving any changes
+  - The format is `[name of the query] | [filters] | [report]`. For example, `Work | project:Work status:pending | next`
+  - `q` or `:q` will close the buffer without saving any changes
   - `:wq` or `w` will save and close the buffer
   - The file is saved in `vim.fn.stdpath("data").."m_taskwarrior_d.nvim"`
 - `:TWSavedQueries`: will prompt a menu with the list of all saved queries, after an item is selected, a floating window will open with the output of `task {query}`
