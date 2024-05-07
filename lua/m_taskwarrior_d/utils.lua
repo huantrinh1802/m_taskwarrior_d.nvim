@@ -117,11 +117,11 @@ local function concat_with_quotes(tbl)
 end
 
 local function calculate_final_status(tasks)
-  local pendingCount, startedCount, completedCount, deletedCount = 0, 0, 0, 0
+  local pendingCount, activeCount, completedCount, deletedCount = 0, 0, 0, 0
   for _, task in ipairs(tasks) do
     if task.status == "pending" then
-      if task["tags"] ~= nil and M.contains(task.tags, "started") then
-        startedCount = startedCount + 1
+      if task['start'] ~= nil then
+        activeCount = activeCount + 1
       else
         pendingCount = pendingCount + 1
       end
@@ -140,7 +140,7 @@ local function calculate_final_status(tasks)
   if deletedCount == #tasks then
     return "deleted"
   end
-  return "started"
+  return "active"
 end
 
 local function find_pattern_line(pattern)
@@ -224,12 +224,12 @@ function M.add_or_sync_task(line, replace_desc)
     else
       local new_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
       if new_task then
-        local started = false
-        if new_task.status == "pending" and new_task["tags"] ~= nil then
-          started = M.contains(new_task["tags"], "started")
+        local active = false
+        if new_task.status == "pending" and new_task["start"] ~= nil then
+          active = true
         end
         local new_task_status_sym
-        if not started then
+        if not active then
           new_task_status_sym, _ = findPair(M.status_map, nil, new_task.status)
         else
           new_task_status_sym = ">"
@@ -353,19 +353,26 @@ function M.render_tasks(tasks, depth)
   depth = depth or 0
   local markdown = {}
   for _, task in ipairs(tasks) do
-    local started = false
-    if task.status == "pending" and task["tags"] ~= nil then
-      started = require("m_taskwarrior_d.utils").contains(task["tags"], "started")
+    local active = false
+    if task.status == "pending" and task["start"] ~= nil then
+      active = true
     end
     local new_task_status_sym
-    if not started then
+    if not active then
       new_task_status_sym, _ = findPair(require("m_taskwarrior_d.utils").status_map, nil, task.status)
     else
       new_task_status_sym = ">"
     end
     table.insert(
       markdown,
-      string.rep(" ", vim.opt_local.shiftwidth._value * depth) .. "- [" .. new_task_status_sym .. "] " .. task.desc .. " $id{" .. task.uuid .. "}"
+      string.rep(" ", vim.opt_local.shiftwidth._value * depth)
+        .. "- ["
+        .. new_task_status_sym
+        .. "] "
+        .. task.desc
+        .. " $id{"
+        .. task.uuid
+        .. "}"
     )
     if task[1] then
       local nested_tasks = M.render_tasks(task, depth + 1)

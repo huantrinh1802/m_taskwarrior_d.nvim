@@ -7,7 +7,7 @@ M._concealTaskId = nil
 M.current_winid = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
-  status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" },
+  status_map = { [" "] = "pending", [">"] = "active", ["x"] = "completed", ["~"] = "deleted" },
   id_pattern = { vim = "\\x*-\\x*-\\x*-\\x*-\\x*", lua = "%x*-%x*-%x*-%x*-%x*" },
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
   task_whitelist_path = {},

@@ -134,7 +134,7 @@ The goals of this plugin are:
   -- The order of toggling task statuses
   task_statuses = { " ", ">", "x", "~" },
   -- The mapping between status and symbol in checkbox
-  status_map = { [" "] = "pending", [">"] = "started", ["x"] = "completed", ["~"] = "deleted" },
+  status_map = { [" "] = "pending", [">"] = "active", ["x"] = "completed", ["~"] = "deleted" },
   -- More configurations will be added in the future
 }
 ```
@@ -142,7 +142,7 @@ The goals of this plugin are:
 ### Statuses
 
 - `pending`: corresponding to `pending` status
-- `started`: corresponding to `pending` status and `stated` tag
+- `active`: has `active` attribute 
 - `completed`: corresponding to `completed` status
 - `deleted`: corresponding to `deleted` status
 
@@ -176,7 +176,7 @@ If you are using `obsidian.nvim`, you can use the following configuration:
 
 - `:TWToggle`: toggle status of task
   - If the task is registered in Taskwarrior, it also checks the parent task (if any) to determine the final status and apply it. The logic is as follows:
-    - If there are any started tasks, it returns `started`.
+    - If there are any started tasks, it returns `active`.
     - If there are pending tasks but no started tasks, it returns `pending`.
     - If there are completed tasks, it returns `completed`.
     - If they are all deleted tasks, it returns `deleted`.
