@@ -76,11 +76,11 @@ end
 --Function to modify task's status completed, (pending), deleted, started, canceled
 function M.modify_task_status(task_id, new_status)
   local command
-  if M.status_map[new_status] == "started" then
-    command = string.format("task %s modify +started status:pending", task_id)
+  if M.status_map[new_status] == "active" then
+    command = string.format("task %s start", task_id)
   else
     local status = M.status_map[new_status]
-    command = string.format("task %s modify status:%s -started", task_id, status)
+    command = string.format("task %s modify status:%s", task_id, status)
   end
   local status, result = M.execute_taskwarrior_command(command)
 end
