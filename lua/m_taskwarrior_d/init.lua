@@ -10,6 +10,8 @@ M._config = {
   status_map = { [" "] = "pending", [">"] = "active", ["x"] = "completed", ["~"] = "deleted" },
   id_pattern = { vim = "\\x*-\\x*-\\x*-\\x*-\\x*", lua = "%x*-%x*-%x*-%x*-%x*" },
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
+  checkbox_prefix = "[",
+  checkbox_suffix = "]",
   task_whitelist_path = {},
   view_task_config = { total_width = 62, head_width = 15 },
   task_view_fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
@@ -589,8 +591,8 @@ local function process_opts(opts)
   end
   local status_pattern = M.utils.encode_patterns(table.concat(M._config.task_statuses, ""))
   M._config["status_pattern"] = {
-    lua = "(%[([" .. status_pattern.lua .. "])%])",
-    vim = "(\\[([" .. status_pattern.vim .. "])\\])",
+    lua = "(%" .. M._config.checkbox_prefix .. "([" .. status_pattern.lua .. "])%" .. M._config.checkbox_suffix ..")",
+    vim = "(\\" .. M._config.checkbox_prefix .."([" .. status_pattern.vim .. "])\\" .. M._config.checkbox_suffix ..")",
   }
   M._config["checkbox_pattern"] = {
     lua = "(" .. M._config.list_pattern.lua .. ") " .. M._config["status_pattern"].lua,
