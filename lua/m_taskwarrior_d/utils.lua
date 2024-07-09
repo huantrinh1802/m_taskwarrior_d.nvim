@@ -1,5 +1,8 @@
 local M = {}
-M.checkbox_pattern = { lua = "([%-%*%+]) (%[([%sx~%>])%])", vim = "([\\-\\*\\+]) (\\[([\\sx~>])\\])" }
+M.checkbox_pattern = {
+  lua = "([%-%*%+]) (%[([%sx~%>])%])",
+  vim = "([\\-\\*\\+]) (\\[([\\sx~>])\\])",
+}
 M.id_pattern = { vim = "(\\$id{([0-9a-fA-F\\-]\\+)})", lua = "(%$id@([0-9a-fA-F$-]+)@)" }
 M.task_pattern = {
   lua = M.checkbox_pattern.lua .. " (.*) " .. M.id_pattern.lua,
@@ -200,7 +203,7 @@ function M.toggle_task_status(current_line, line_number, new_status)
       new_status = M.task_statuses[status_index + 1]
     end
   end
-  local modified_line = string.gsub(current_line, M.status_pattern.lua, "[" .. new_status .. "]")
+  local modified_line = string.gsub(current_line, M.status_pattern.lua, M.checkbox_prefix .. new_status .. M.checkbox_suffix)
   -- Set the modified line back to the buffer
 
   vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { modified_line })
@@ -241,9 +244,9 @@ function M.add_or_sync_task(line, replace_desc)
           require("m_taskwarrior_d.task").modify_task(uuid, desc)
           result = string.rep(" ", spaces or 0)
             .. list_sb
-            .. " ["
+            .. " " .. M.checkbox_prefix
             .. new_task_status_sym
-            .. "] "
+            .. M.checkbox_suffix .. " "
             .. M.trim(desc)
             .. " $id{"
             .. new_task.uuid
@@ -251,9 +254,9 @@ function M.add_or_sync_task(line, replace_desc)
         else
           result = string.rep(" ", spaces or 0)
             .. list_sb
-            .. " ["
+            .. " " .. M.checkbox_prefix
             .. new_task_status_sym
-            .. "] "
+            .. M.checkbox_suffix .. " "
             .. new_task.description
             .. " $id{"
             .. new_task.uuid
@@ -366,9 +369,9 @@ function M.render_tasks(tasks, depth)
     table.insert(
       markdown,
       string.rep(" ", vim.opt_local.shiftwidth._value * depth)
-        .. "- ["
+        .. "- " .. M.checkbox_prefix
         .. new_task_status_sym
-        .. "] "
+        .. M.checkbox_suffix .. " "
         .. task.desc
         .. " $id{"
         .. task.uuid
