@@ -135,6 +135,11 @@ The goals of this plugin are:
   task_statuses = { " ", ">", "x", "~" },
   -- The mapping between status and symbol in checkbox
   status_map = { [" "] = "pending", [">"] = "active", ["x"] = "completed", ["~"] = "deleted" },
+  -- The checkbox prefix and suffix
+  checkbox_prefix = "[",
+  checkbox_suffix = "]",
+  -- The default list symbol
+  default_list_symbol = "-",
   -- More configurations will be added in the future
 }
 ```

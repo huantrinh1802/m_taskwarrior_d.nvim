@@ -369,7 +369,9 @@ function M.render_tasks(tasks, depth)
     table.insert(
       markdown,
       string.rep(" ", vim.opt_local.shiftwidth._value * depth)
-        .. "- " .. M.checkbox_prefix
+        .. M.default_list_symbol
+        .. " "
+        .. M.checkbox_prefix
         .. new_task_status_sym
         .. M.checkbox_suffix .. " "
         .. task.desc
