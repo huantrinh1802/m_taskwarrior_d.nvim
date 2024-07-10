@@ -12,6 +12,7 @@ M._config = {
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
   checkbox_prefix = "[",
   checkbox_suffix = "]",
+  default_list_symbol = "-",
   task_whitelist_path = {},
   view_task_config = { total_width = 62, head_width = 15 },
   task_view_fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
