@@ -38,7 +38,7 @@ end
 function M.encode_patterns(str)
   local lua_pattern = str:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?%s%>]", "%%%1")
   lua_pattern = lua_pattern:gsub(" ", "%s")
-  local vim_regex = str:gsub("[\\%*\\.\\[\\^\\$\\(\\)\\|\\?\\+\\s]", "\\%1")
+  local vim_regex = str:gsub("[\\%*\\.\\[\\^\\$\\(\\)\\|\\?\\+\\s\\-]", "\\%1")
   vim_regex = str:gsub(" ", "\\s")
   return { lua = lua_pattern, vim = vim_regex }
 end

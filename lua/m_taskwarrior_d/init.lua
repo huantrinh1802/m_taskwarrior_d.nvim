@@ -8,7 +8,7 @@ M.current_winid = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
   status_map = { [" "] = "pending", [">"] = "active", ["x"] = "completed", ["~"] = "deleted" },
-  id_pattern = { vim = "\\x*-\\x*-\\x*-\\x*-\\x*", lua = "%x*-%x*-%x*-%x*-%x*" },
+  id_pattern = { vim = "\\x*\\-\\x*\\-\\x*\\-\\x*\\-\\x*", lua = "%x*-%x*-%x*-%x*-%x*" },
   list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
   checkbox_prefix = "[",
   checkbox_suffix = "]",
@@ -17,6 +17,8 @@ M._config = {
   view_task_config = { total_width = 62, head_width = 15 },
   task_view_fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
   close_floating_window = { "q", "<Esc>", "<C-c>" },
+  comment_prefix = "<!--",
+  comment_suffix = "-->",
 }
 
 function M.sync_tasks(start_position, end_position)
@@ -139,7 +141,7 @@ function M.view_task()
     inserted[v] = false
   end
   for k, v in pairs(task_info) do
-    local loc = find_next_index(k, inserted, md_table) or #md_table + 1 
+    local loc = find_next_index(k, inserted, md_table) or #md_table + 1
     local number_of_lines = 0
     if type(v) == "table" then
       for i, j in ipairs(v) do
@@ -185,7 +187,8 @@ function M.view_task()
       local row = nil
       local head = k .. string.rep(" ", M._config.view_task_config.head_width - #k)
       if
-        type(v) == "string" and #v > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3
+        type(v) == "string"
+        and #v > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3
       then
         row = head
           .. " | "
@@ -485,7 +488,7 @@ function M.start_scratch(query)
   vim.cmd(string.format("autocmd BufModifiedSet <buffer=%s> set nomodified noswapfile", split.bufnr))
   vim.cmd("edit " .. vim.fn.stdpath("data") .. "/m_taskwarrior_d.md")
   vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "" })
-  vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "# Task $query{" .. query .. "}" })
+  vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "# Task "..M._config.comment_prefix.." $query{" .. query .. "} "..M._config.comment_suffix })
   vim.cmd("TWQueryTasks")
 end
 
@@ -577,7 +580,7 @@ end
 function M.query_tasks_in_buffer()
   for line_number = vim.api.nvim_buf_line_count(0), 1, -1 do
     local current_line, _ = M.utils.get_line(line_number)
-    local _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
+    local _, _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
     if query then
       M.query_tasks(line_number, query, report)
     end
@@ -591,25 +594,33 @@ local function process_opts(opts)
     end
   end
   local status_pattern = M.utils.encode_patterns(table.concat(M._config.task_statuses, ""))
+  local comment_prefix_encoded = M.utils.encode_patterns(M._config.comment_prefix)
+  local comment_suffix_encoded = M.utils.encode_patterns(M._config.comment_suffix)
   M._config["status_pattern"] = {
-    lua = "(%" .. M._config.checkbox_prefix .. "([" .. status_pattern.lua .. "])%" .. M._config.checkbox_suffix ..")",
-    vim = "(\\" .. M._config.checkbox_prefix .."([" .. status_pattern.vim .. "])\\" .. M._config.checkbox_suffix ..")",
+    lua = "(%" .. M._config.checkbox_prefix .. "([" .. status_pattern.lua .. "])%" .. M._config.checkbox_suffix .. ")",
+    vim = "(\\"
+      .. M._config.checkbox_prefix
+      .. "(["
+      .. status_pattern.vim
+      .. "])\\"
+      .. M._config.checkbox_suffix
+      .. ")",
   }
   M._config["checkbox_pattern"] = {
     lua = "(" .. M._config.list_pattern.lua .. ") " .. M._config["status_pattern"].lua,
     vim = "(" .. M._config.list_pattern.vim .. ") " .. M._config["status_pattern"].vim,
   }
   M._config["id_part_pattern"] = {
-    vim = "(\\$id{" .. M._config.id_pattern.vim .. "})",
-    lua = "(%$id{(" .. M._config.id_pattern.lua .. ")})",
+    vim = "("..comment_prefix_encoded.vim.." (\\$id{" .. M._config.id_pattern.vim .. "}) "..comment_suffix_encoded.vim..")",
+    lua = "("..comment_prefix_encoded.lua.." (%$id{(" .. M._config.id_pattern.lua .. ")}) "..comment_suffix_encoded.lua..")",
   }
   M._config["task_pattern"] = {
     lua = M._config.checkbox_pattern.lua .. " (.*) " .. M._config.id_part_pattern.lua,
     vim = M._config.checkbox_pattern.vim .. " (.*) " .. M._config.id_part_pattern.vim,
   }
   M._config["task_query_pattern"] = {
-    vim = "(\\$query{([^\\|]*)|*([^}]\\*)})",
-    lua = "(%$query{([^%|]*)|*([^}]*)})",
+    vim = "("..comment_prefix_encoded.vim.." (\\$query{([^\\|]*)|*([^}]*)}) "..comment_suffix_encoded.vim..")",
+    lua = "("..comment_prefix_encoded.lua.." (%$query{([^%|]*)|*([^}]*)}) "..comment_suffix_encoded.lua..")",
   }
 end
 
@@ -638,8 +649,8 @@ function M.setup(opts)
     callback = function()
       -- Get the file type of the current buffer
       vim.opt.conceallevel = 2
-      M._concealTaskId = vim.fn.matchadd("Conceal", "\\(\\$id{\\([0-9a-fA-F\\-]\\+\\)}\\)", 0, -1, { conceal = "" })
-      M._concealTaskQuery = vim.fn.matchadd("Conceal", "\\$query{[^\\}]\\+}", 0, -1, { conceal = "󰡦" })
+      M._concealTaskId = vim.fn.matchadd("Conceal", M._config.id_part_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "" })
+      M._concealTaskQuery = vim.fn.matchadd("Conceal", M._config.task_query_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "󰡦" })
       vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
     end,
   })
@@ -719,7 +730,6 @@ function M.setup(opts)
       print("No scratch window")
     end
   end, {})
-
 end
 
 return M
