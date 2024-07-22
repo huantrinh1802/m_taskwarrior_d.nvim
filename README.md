@@ -83,6 +83,9 @@ The goals of this plugin are:
 - [obsidian.nvim](https://github.com/epwalsh/obsidian.nvim/tree/main)
   - If you use Obsidian for note taking, this plugin is highly recommended
   - This plugin provides some nice concealment and utilities for Obsidian
+- [markdown.nvim](https://github.com/MeanderingProgrammer/markdown.nvim)
+  - Plugin to improve viewing Markdown files in Neovim
+  - Tips: if you use `markdown.nvim` and `obsidan.nvim`, you should disable `obsidian.nvim`'s UI configurations
 
 ## Similar To
 
@@ -140,6 +143,12 @@ The goals of this plugin are:
   checkbox_suffix = "]",
   -- The default list symbol
   default_list_symbol = "-",
+  -- Comments pattern prefix and suffix
+  -- This is extremely useful for viewing the note in any Makrdown previewers (i.e. Obsidian app) if you set   
+  -- - comment_prefix = "<!--",
+  -- - comment_suffix = "-->",
+  comment_prefix = "",
+  comment_suffix = "",
   -- More configurations will be added in the future
 }
 ```
@@ -175,6 +184,33 @@ If you are using `obsidian.nvim`, you can use the following configuration:
     },
   },
 }
+```
+
+If you are using `markdown.nvim`, you can set the following configuration:
+
+```lua
+  {
+    "MeanderingProgrammer/markdown.nvim",
+    name = "render-markdown", -- Only needed if you have another plugin named markdown.nvim
+    dependencies = { "nvim-treesitter/nvim-treesitter" },
+    config = function()
+      require("render-markdown").setup({
+        checkbox = {
+          enabled = true,
+          checked = {
+            -- Replaces '[x]' of 'task_list_marker_checked'
+            icon = " ",
+            -- Highligh for the checked icon
+            highlight = "RenderMarkdownChecked",
+          },
+          custom = {
+            started = { raw = "[>]", rendered = " ", highlight = "@markup.raw" },
+            deleted = { raw = "[~]", rendered = " ", highlight = "@markup.raw" },
+          },
+        },
+      })
+    end,
+  },
 ```
 
 ### Commands
