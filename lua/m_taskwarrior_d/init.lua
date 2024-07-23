@@ -702,7 +702,7 @@ function M.setup(opts)
   end, { nargs = "*", range = true })
   vim.api.nvim_create_user_command("TWQueryTasks", function()
     local current_line, line_number = M.utils.get_line()
-    local _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
+    local _, _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
     if query then
       M.query_tasks(line_number, query, report)
     else
