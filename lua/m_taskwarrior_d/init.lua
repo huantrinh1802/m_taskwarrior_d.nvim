@@ -17,8 +17,8 @@ M._config = {
   view_task_config = { total_width = 62, head_width = 15 },
   task_view_fields_order = { "project", "description", "urgency", "status", "tags", "annotations" },
   close_floating_window = { "q", "<Esc>", "<C-c>" },
-  comment_prefix = "<!--",
-  comment_suffix = "-->",
+  comment_prefix = "",
+  comment_suffix = "",
 }
 
 function M.sync_tasks(start_position, end_position)
