@@ -214,7 +214,7 @@ function M.add_or_sync_task(line, replace_desc)
   local list_sb, _, status = string.match(line, M.checkbox_pattern.lua)
   local desc = string.gsub(line, M.checkbox_pattern.lua, "")
   local result
-  local _, uuid = string.match(line, M.id_part_pattern.lua)
+  local _, _, uuid = string.match(line, M.id_part_pattern.lua)
   if uuid == nil then
     uuid = require("m_taskwarrior_d.task").add_task(desc)
     result = line:gsub("%s+$", "") .. " $id{" .. uuid .. "}"
@@ -248,9 +248,11 @@ function M.add_or_sync_task(line, replace_desc)
             .. new_task_status_sym
             .. M.checkbox_suffix .. " "
             .. M.trim(desc)
+            .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
             .. " $id{"
             .. new_task.uuid
             .. "}"
+            .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
         else
           result = string.rep(" ", spaces or 0)
             .. list_sb
@@ -258,9 +260,11 @@ function M.add_or_sync_task(line, replace_desc)
             .. new_task_status_sym
             .. M.checkbox_suffix .. " "
             .. new_task.description
+            .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
             .. " $id{"
             .. new_task.uuid
             .. "}"
+            .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
         end
       else
         result = line
@@ -375,9 +379,12 @@ function M.render_tasks(tasks, depth)
         .. new_task_status_sym
         .. M.checkbox_suffix .. " "
         .. task.desc
+        .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
         .. " $id{"
         .. task.uuid
         .. "}"
+        .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+
     )
     if task[1] then
       local nested_tasks = M.render_tasks(task, depth + 1)
@@ -390,7 +397,11 @@ function M.render_tasks(tasks, depth)
 end
 
 function M.apply_context_data(line, line_number)
-  local _, query = string.match(line, M["task_query_pattern"].lua)
+  local no_of_lines = vim.api.nvim_buf_line_count(0)
+  if line_number == no_of_lines then
+    return
+  end
+  local _, _, query = string.match(line, M["task_query_pattern"].lua)
   query = query.gsub(query, "status:.*%s", " ")
   local count = 1
   local uuid = nil
@@ -404,7 +415,6 @@ function M.apply_context_data(line, line_number)
   if #next_line == 0 or next_line == " " then
     block_ended = false
   end
-  local no_of_lines = vim.api.nvim_buf_line_count(0)
   while not block_ended and next_line_number <= no_of_lines do
     count = count + 1
     next_line, next_line_number = M.get_line(line_number + count)
