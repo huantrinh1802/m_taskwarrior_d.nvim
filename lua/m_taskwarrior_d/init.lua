@@ -611,16 +611,16 @@ local function process_opts(opts)
     vim = "(" .. M._config.list_pattern.vim .. ") " .. M._config["status_pattern"].vim,
   }
   M._config["id_part_pattern"] = {
-    vim = "("..comment_prefix_encoded.vim.." (\\$id{" .. M._config.id_pattern.vim .. "}) "..comment_suffix_encoded.vim..")",
-    lua = "("..comment_prefix_encoded.lua.." (%$id{(" .. M._config.id_pattern.lua .. ")}) "..comment_suffix_encoded.lua..")",
+    vim = "("..(M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "").."(\\$id{" .. M._config.id_pattern.vim .. "})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.vim or "")..")",
+    lua = "("..(M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "").."(%$id{(" .. M._config.id_pattern.lua .. ")})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.lua or "")..")",
   }
   M._config["task_pattern"] = {
     lua = M._config.checkbox_pattern.lua .. " (.*) " .. M._config.id_part_pattern.lua,
     vim = M._config.checkbox_pattern.vim .. " (.*) " .. M._config.id_part_pattern.vim,
   }
   M._config["task_query_pattern"] = {
-    vim = "("..comment_prefix_encoded.vim.." (\\$query{([^\\|]*)|*([^}]*)}) "..comment_suffix_encoded.vim..")",
-    lua = "("..comment_prefix_encoded.lua.." (%$query{([^%|]*)|*([^}]*)}) "..comment_suffix_encoded.lua..")",
+    vim = "("..(M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "").."(\\$query{([^\\|]*)|*([^}]*)})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.vim or "")..")",
+    lua = "("..(M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "").."(%$query{([^%|]*)|*([^}]*)})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.vim or "")..")",
   }
 end
 
