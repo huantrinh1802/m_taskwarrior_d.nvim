@@ -123,7 +123,7 @@ local function calculate_final_status(tasks)
   local pendingCount, activeCount, completedCount, deletedCount = 0, 0, 0, 0
   for _, task in ipairs(tasks) do
     if task.status == "pending" then
-      if task['start'] ~= nil then
+      if task["start"] ~= nil then
         activeCount = activeCount + 1
       else
         pendingCount = pendingCount + 1
@@ -203,7 +203,8 @@ function M.toggle_task_status(current_line, line_number, new_status)
       new_status = M.task_statuses[status_index + 1]
     end
   end
-  local modified_line = string.gsub(current_line, M.status_pattern.lua, M.checkbox_prefix .. new_status .. M.checkbox_suffix)
+  local modified_line =
+    string.gsub(current_line, M.status_pattern.lua, M.checkbox_prefix .. new_status .. M.checkbox_suffix)
   -- Set the modified line back to the buffer
 
   vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { modified_line })
@@ -217,13 +218,23 @@ function M.add_or_sync_task(line, replace_desc)
   local _, _, uuid = string.match(line, M.id_part_pattern.lua)
   if uuid == nil then
     uuid = require("m_taskwarrior_d.task").add_task(desc)
-    result = line:gsub("%s+$", "") .. " $id{" .. uuid .. "}"
+    result = line:gsub("%s+$", "")
+      .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
+      .. " $id{"
+      .. uuid
+      .. "}"
+      .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
   else
     desc = string.gsub(desc, M.id_part_pattern.lua, "")
     if require("m_taskwarrior_d.task").get_task_by(uuid) == nil then
       line = string.gsub(line, M.id_part_pattern.lua, "")
       uuid = require("m_taskwarrior_d.task").add_task(desc)
-      result = line:gsub("%s+$", "") .. " $id{" .. uuid .. "}"
+      result = line:gsub("%s+$", "")
+        .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
+        .. " $id{"
+        .. uuid
+        .. "}"
+        .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
     else
       local new_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
       if new_task then
@@ -244,9 +255,11 @@ function M.add_or_sync_task(line, replace_desc)
           require("m_taskwarrior_d.task").modify_task(uuid, desc)
           result = string.rep(" ", spaces or 0)
             .. list_sb
-            .. " " .. M.checkbox_prefix
+            .. " "
+            .. M.checkbox_prefix
             .. new_task_status_sym
-            .. M.checkbox_suffix .. " "
+            .. M.checkbox_suffix
+            .. " "
             .. M.trim(desc)
             .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
             .. " $id{"
@@ -256,9 +269,11 @@ function M.add_or_sync_task(line, replace_desc)
         else
           result = string.rep(" ", spaces or 0)
             .. list_sb
-            .. " " .. M.checkbox_prefix
+            .. " "
+            .. M.checkbox_prefix
             .. new_task_status_sym
-            .. M.checkbox_suffix .. " "
+            .. M.checkbox_suffix
+            .. " "
             .. new_task.description
             .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
             .. " $id{"
@@ -377,14 +392,14 @@ function M.render_tasks(tasks, depth)
         .. " "
         .. M.checkbox_prefix
         .. new_task_status_sym
-        .. M.checkbox_suffix .. " "
+        .. M.checkbox_suffix
+        .. " "
         .. task.desc
         .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
         .. " $id{"
         .. task.uuid
         .. "}"
         .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
-
     )
     if task[1] then
       local nested_tasks = M.render_tasks(task, depth + 1)
@@ -443,7 +458,7 @@ function M.delete_scoped_tasks(line_number)
   if #next_line == 0 or next_line == " " then
     start_line = next_line_number
   else
-    vim.api.nvim_buf_set_lines(0, line_number, line_number, false, {''})
+    vim.api.nvim_buf_set_lines(0, line_number, line_number, false, { "" })
     return
   end
   while end_line == nil and next_line_number < no_of_lines do
