@@ -103,10 +103,16 @@ end
 function M.update_current_task()
   local start_line = vim.fn.line("'<") -- Get the start line of the selection
   local end_line = vim.fn.line("'>") -- Get the end line of the selection
-  for line_num = start_line, end_line do
-    local current_line, line_number = M.utils.get_line(line_num)
+  if (start_line == 0) or (end_line == 0) then
+    local current_line, line_number = M.utils.get_line()
     local result, _ = M.utils.add_or_sync_task(current_line, true)
     vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
+  else
+    for line_num = start_line, end_line do
+      local current_line, line_number = M.utils.get_line(line_num)
+      local result, _ = M.utils.add_or_sync_task(current_line, true)
+      vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
+    end
   end
 end
 
