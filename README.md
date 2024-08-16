@@ -237,7 +237,7 @@ If you are using `markdown.nvim`, you can set the following configuration:
     ```
 
     - Any tasks under the header will be assigned to project A
-- `:TWSyncCurrent`: similar to `TWSyncTasks` but only sync the current task
+- `:TWSyncCurrent`: similar to `TWSyncTasks` but only sync the current task. Work with normal and visual mode
 - `:TWSyncBulk`: similar to `TWSyncTasks` but only sync the selected tasks in visual mode
 - `:TWUpdateCurrent`: quickly update the description of the task so you don't have to use the edit command
 - `:TWEditTask`: toggle a float window, which can edit the task.
