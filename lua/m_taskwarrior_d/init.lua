@@ -494,7 +494,13 @@ function M.start_scratch(query)
   vim.cmd(string.format("autocmd BufModifiedSet <buffer=%s> set nomodified noswapfile", split.bufnr))
   vim.cmd("edit " .. vim.fn.stdpath("data") .. "/m_taskwarrior_d.md")
   vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "" })
-  vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, { "# Task "..M._config.comment_prefix.." $query{" .. query .. "} "..M._config.comment_suffix })
+  vim.api.nvim_buf_set_lines(
+    split.bufnr,
+    0,
+    -1,
+    false,
+    { "# Task " .. M._config.comment_prefix .. " $query{" .. query .. "} " .. M._config.comment_suffix }
+  )
   vim.cmd("TWQueryTasks")
 end
 
@@ -617,16 +623,36 @@ local function process_opts(opts)
     vim = "(" .. M._config.list_pattern.vim .. ") " .. M._config["status_pattern"].vim,
   }
   M._config["id_part_pattern"] = {
-    vim = "("..(M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "").."(\\$id{" .. M._config.id_pattern.vim .. "})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.vim or "")..")",
-    lua = "("..(M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "").."(%$id{(" .. M._config.id_pattern.lua .. ")})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.lua or "")..")",
+    vim = "("
+      .. (M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "")
+      .. "(\\$id{"
+      .. M._config.id_pattern.vim
+      .. "})"
+      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
+      .. ")",
+    lua = "("
+      .. (M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "")
+      .. "(%$id{("
+      .. M._config.id_pattern.lua
+      .. ")})"
+      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.lua or "")
+      .. ")",
   }
   M._config["task_pattern"] = {
     lua = M._config.checkbox_pattern.lua .. " (.*) " .. M._config.id_part_pattern.lua,
     vim = M._config.checkbox_pattern.vim .. " (.*) " .. M._config.id_part_pattern.vim,
   }
   M._config["task_query_pattern"] = {
-    vim = "("..(M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "").."(\\$query{([^\\|]*)|*([^}]*)})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.vim or "")..")",
-    lua = "("..(M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "").."(%$query{([^%|]*)|*([^}]*)})"..(M._config.comment_suffix ~= "" and " "..comment_suffix_encoded.lua or "")..")",
+    vim = "("
+      .. (M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "")
+      .. "(\\$query{([^\\|]*)|*([^}]*)})"
+      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
+      .. ")",
+    lua = "("
+      .. (M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "")
+      .. "(%$query{([^%|]*)|*([^}]*)})"
+      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.lua or "")
+      .. ")",
   }
 end
 
@@ -655,8 +681,10 @@ function M.setup(opts)
     callback = function()
       -- Get the file type of the current buffer
       vim.opt.conceallevel = 2
-      M._concealTaskId = vim.fn.matchadd("Conceal", M._config.id_part_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "" })
-      M._concealTaskQuery = vim.fn.matchadd("Conceal", M._config.task_query_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "󰡦" })
+      M._concealTaskId =
+        vim.fn.matchadd("Conceal", M._config.id_part_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "" })
+      M._concealTaskQuery =
+        vim.fn.matchadd("Conceal", M._config.task_query_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "󰡦" })
       vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
     end,
   })
