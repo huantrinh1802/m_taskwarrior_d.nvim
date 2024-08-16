@@ -295,7 +295,7 @@ function M.extract_uuid(line)
     return nil
   end
   local uuid_pattern = M.id_part_pattern.lua
-  local conceal, uuid = string.match(line, uuid_pattern)
+  local _, conceal, uuid = string.match(line, uuid_pattern)
   return conceal, uuid
 end
 
