@@ -86,9 +86,9 @@ function M.toggle_task()
   local current_line, line_number = M.utils.get_line()
   local _, uuid = M.utils.extract_uuid(current_line)
   if uuid ~= nil then
-    local task = M.task.get_task_by(uuid, "task")
-    if task and task["depends"] ~= nil then
-      print("This task has dependencies: " .. table.concat(task["depends"], ", "))
+    local is_blocked = M.task.check_if_task_is_blocked(uuid)
+    if is_blocked then
+      print("This task is blocked")
       return nil
     end
   end
