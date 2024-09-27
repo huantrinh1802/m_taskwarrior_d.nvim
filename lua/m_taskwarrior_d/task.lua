@@ -77,12 +77,12 @@ end
 function M.modify_task_status(task_id, new_status)
   local command
   if M.status_map[new_status] == "active" then
-    command = string.format("task %s start", task_id)
+    command = string.format("task %s modify status:pending; task %s start", task_id, task_id)
   else
     local status = M.status_map[new_status]
     command = string.format("task %s modify status:%s", task_id, status)
   end
-  local status, result = M.execute_taskwarrior_command(command)
+  M.execute_taskwarrior_command(command)
 end
 
 function M.add_task_deps(current_task_id, deps)
@@ -113,6 +113,15 @@ function M.get_tasks_by(uuids)
     end
   end
   return true, tasks
+end
+
+function M.check_if_task_is_blocked(uuid)
+  local command = string.format("task %s -BLOCKED", uuid)
+  local _, result = M.execute_taskwarrior_command(command, true)
+  if #result > 0 then
+    return false
+  end
+  return true
 end
 
 return M

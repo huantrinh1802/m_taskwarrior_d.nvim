@@ -179,10 +179,12 @@ function M.update_related_tasks_statuses(uuid)
   for _, task in ipairs(tasks) do
     local _, dependencies = task_mod.get_tasks_by(task["depends"])
     local new_status = calculate_final_status(dependencies)
-    local line_number = find_pattern_line(task.uuid)
     new_status, _ = findPair(M.status_map, nil, new_status)
-    M.toggle_task_status(nil, line_number, new_status)
     task_mod.modify_task_status(task.uuid, new_status)
+    local line_number = find_pattern_line(task.uuid)
+    if line_number ~= nil then
+      M.toggle_task_status(nil, line_number, new_status)
+    end
   end
 end
 
