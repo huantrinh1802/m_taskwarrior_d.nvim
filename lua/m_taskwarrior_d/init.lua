@@ -594,6 +594,7 @@ function M.query_tasks_in_buffer()
     local current_line, _ = M.utils.get_line(line_number)
     local _, _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
     if query then
+      M.utils.delete_scoped_tasks(line_number)
       M.query_tasks(line_number, query, report)
     end
   end
