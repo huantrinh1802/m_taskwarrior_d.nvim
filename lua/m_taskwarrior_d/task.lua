@@ -30,7 +30,7 @@ function M.get_task_by(task_id, return_data)
   local task_info
   if vim == nil then
     local json = require("cjson")
-    task_info = json.decode(resulr)
+    task_info = json.decode(result)
   else
     task_info = vim.fn.json_decode(result)
   end
