@@ -625,14 +625,14 @@ local function process_opts(opts)
   }
   M._config["id_part_pattern"] = {
     vim = "("
-      .. (M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "")
+      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.vim .. " " or "")
       .. "(\\$id{"
       .. M._config.id_pattern.vim
       .. "})"
       .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
       .. ")",
     lua = "("
-      .. (M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "")
+      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.lua .. " " or "")
       .. "(%$id{("
       .. M._config.id_pattern.lua
       .. ")})"
@@ -645,12 +645,12 @@ local function process_opts(opts)
   }
   M._config["task_query_pattern"] = {
     vim = "("
-      .. (M._config.comment_prefix and comment_prefix_encoded.vim .. " " or "")
+      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.vim .. " " or "")
       .. "(\\$query{([^\\|]*)|*([^}]*)})"
       .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
       .. ")",
     lua = "("
-      .. (M._config.comment_prefix and comment_prefix_encoded.lua .. " " or "")
+      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.lua .. " " or "")
       .. "(%$query{([^%|]*)|*([^}]*)})"
       .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.lua or "")
       .. ")",
