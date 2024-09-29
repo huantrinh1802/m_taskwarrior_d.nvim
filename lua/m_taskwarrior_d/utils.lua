@@ -8,6 +8,7 @@ M.task_pattern = {
   lua = M.checkbox_pattern.lua .. " (.*) " .. M.id_pattern.lua,
   vim = M.checkbox_pattern.vim .. " (.*) " .. M.id_pattern.vim,
 }
+M.task = require("m_taskwarrior_d.task")
 
 function M.convert_timestamp_utc_local(timestamp_utc)
   local year = tonumber(string.sub(timestamp_utc, 1, 4))
@@ -44,6 +45,7 @@ function M.encode_patterns(str)
 end
 
 function M.set_config(opts)
+  M.ns_due_id = vim.api.nvim_create_namespace("due")
   for k, v in pairs(opts) do
     M[k] = v
   end
@@ -475,6 +477,69 @@ function M.delete_scoped_tasks(line_number)
     end_line = no_of_lines
   end
   vim.api.nvim_buf_set_lines(0, start_line, end_line, false, {})
+end
+
+function M.parse_ISO8601_date(iso_date)
+  local pattern = "(%d%d%d%d)(%d%d)(%d%d)T(%d%d)(%d%d)(%d%d)Z"
+  local year, month, day, hour, min, sec = iso_date:match(pattern)
+
+  return os.time({
+    year = tonumber(year),
+    month = tonumber(month),
+    day = tonumber(day),
+    hour = tonumber(hour),
+    min = tonumber(min),
+    sec = tonumber(sec),
+  })
+end
+
+function M.render_virtual_due_dates(start_line, end_line)
+  if start_line == nil then
+    start_line = 0
+    if end_line == nil then
+      end_line = -1
+    end
+  end
+  if start_line ~= nil and end_line == nil then
+    end_line = -1
+  end
+  vim.api.nvim_buf_clear_namespace(0, M.ns_due_id, start_line, end_line)
+  for i, v in ipairs(vim.api.nvim_buf_get_lines(0, start_line, end_line, false)) do
+    local _, uuid = M.extract_uuid(v)
+    local task_data = M.task.get_task_by(uuid, "task")
+    if task_data ~= nil then
+      local due = task_data["due"]
+      local scheduled = task_data["scheduled"]
+      if due ~= nil or scheduled ~= nil then
+        local time_text = ""
+        local target_time = os.time()
+        if scheduled ~= nil then
+          time_text = "Scheduled: "
+          target_time = M.parse_ISO8601_date(scheduled)
+        end
+        if due ~= nil then
+          time_text = "Due: "
+          target_time = M.parse_ISO8601_date(due)
+        end
+        local current_time = os.time()
+        local time_diff = os.difftime(target_time, current_time)
+        local days = math.floor(time_diff / (24 * 3600))
+        local hours = math.floor((time_diff % (24 * 3600)) / 3600)
+        local minutes = math.floor((time_diff % 3600) / 60)
+        local text = {}
+        if days > 0 then
+          text = { time_text .. string.format("%d days, %d hours left", days, hours), "DueDate" }
+        else
+          text = { time_text .. string.format("%d hours, %d minutes left", hours, minutes), "DueSoon" }
+        end
+        -- Display the time difference
+        vim.api.nvim_buf_set_extmark(0, M.ns_due_id, i + start_line - 1, 0, {
+          virt_text = { text },
+          virt_text_pos = "eol", -- Position of the text ('overlay' or 'right_align')
+        })
+      end
+    end
+  end
 end
 
 return M

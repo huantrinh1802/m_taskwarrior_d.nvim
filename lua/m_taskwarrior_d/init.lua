@@ -551,7 +551,6 @@ function M.toggle_saved_queries(type)
 end
 
 function M.query_tasks(line_number, query, report)
-  M.utils.delete_scoped_tasks(line_number)
   local _, result = M.task.execute_taskwarrior_command("task " .. query .. " -TEMPLATE export " .. report, true)
   if result == nil then
     print("No results")
@@ -687,6 +686,9 @@ function M.setup(opts)
       M._concealTaskQuery =
         vim.fn.matchadd("Conceal", M._config.task_query_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "󰡦" })
       vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
+      vim.api.nvim_exec([[hi DueDate ctermfg=109 guifg=#6495ED ctermbg=NONE guibg=NONE]], false)
+      vim.api.nvim_exec([[hi DueSoon ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]], false)
+      M.utils.render_virtual_due_dates()
     end,
   })
 
@@ -696,30 +698,40 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWSyncCurrent", function()
     local current_line, line_number = M.utils.get_line()
     M.utils.sync_task(current_line, line_number)
+    M.utils.render_virtual_due_dates(line_number)
   end, {})
   -- Should rename to TWSyncAll
   vim.api.nvim_create_user_command("TWSyncTasks", function()
     M.sync_tasks()
+    M.utils.render_virtual_due_dates()
   end, {})
   vim.api.nvim_create_user_command("TWSyncBulk", function()
     local start_line = vim.fn.line("'<") -- Get the start line of the selection
     local end_line = vim.fn.line("'>") -- Get the end line of the selection
     M.sync_tasks(start_line, end_line)
+    M.utils.render_virtual_due_dates(start_line, end_line)
   end, { range = true })
   vim.api.nvim_create_user_command("TWUpdateCurrent", function()
     M.update_current_task()
+    local _, line_number = M.utils.get_line()
+    M.utils.render_virtual_due_dates(line_number)
   end, { range = true })
   vim.api.nvim_create_user_command("TWEditTask", function()
     M.edit_task()
+    local _, line_number = M.utils.get_line()
+    M.utils.render_virtual_due_dates(line_number)
   end, {})
   vim.api.nvim_create_user_command("TWView", function()
     M.view_task()
   end, {})
   vim.api.nvim_create_user_command("TWRunWithCurrent", function()
     M.run_with_current()
+    local _, line_number = M.utils.get_line()
+    M.utils.render_virtual_due_dates(line_number)
   end, {})
   vim.api.nvim_create_user_command("TWRun", function(args)
     M.run_task(args.fargs)
+    M.utils.render_virtual_due_dates()
   end, { nargs = "*" })
   vim.api.nvim_create_user_command("TWFocusFloat", function()
     if M.current_winid ~= nil then
@@ -734,18 +746,24 @@ function M.setup(opts)
   end, {})
   vim.api.nvim_create_user_command("TWRunBulk", function(args)
     M.run_task_bulk(args.fargs)
+    local start_line = vim.fn.line("'<") -- Get the start line of the selection
+    local end_line = vim.fn.line("'>") -- Get the end line of the selection
+    M.utils.render_virtual_due_dates(start_line, end_line)
   end, { nargs = "*", range = true })
   vim.api.nvim_create_user_command("TWQueryTasks", function()
     local current_line, line_number = M.utils.get_line()
     local _, _, query, report = string.match(current_line, M._config["task_query_pattern"].lua)
     if query then
+      M.utils.delete_scoped_tasks(line_number)
       M.query_tasks(line_number, query, report)
+      M.utils.render_virtual_due_dates(line_number)
     else
       print("No query found in current line. Please go to the line contains ${}")
     end
   end, {})
   vim.api.nvim_create_user_command("TWBufQueryTasks", function()
     M.query_tasks_in_buffer()
+    M.utils.render_virtual_due_dates()
   end, {})
 
   vim.api.nvim_create_user_command("TWTaskScratch", function()
