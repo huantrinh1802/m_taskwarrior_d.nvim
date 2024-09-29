@@ -39,6 +39,10 @@ The goals of this plugin are:
 
 ![AfterQuery](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/AfterQueryView.png)
 
+#### Virtual Text for Due/Scheduled task
+
+![VirtualTextDue](https://github.com/huantrinh1802/m_taskwarrior_d.nvim/blob/main/demo/screenshots/VirtualTextDue.png)
+
 ## Features
 
 - [x] Injected and concealed Taskwarrior task
@@ -57,6 +61,7 @@ The goals of this plugin are:
 - [x] View individual task on hover
 - [x] Edit task detail within Neovim (through nui.nvim)
 - [x] `Query View` similar to `dateview` in Obsidian or `Viewport` in Taskwiki
+- [x] Virtual text for due and scheduled tasks
 
 ## Maybe Feature
 
@@ -272,6 +277,9 @@ If you are using `markdown.nvim`, you can set the following configuration:
   - There are two additional commands to use with the scratch window:
     - `:TWScratchShow`: to show the hidden scratch window
     - `:TWScratchHide`: to hide the scratch window
+- `:TWShowDueOrScheduled`: display due or scheduled tasks as virtual text end of line
+- `:TWShowDueOrScheduledCurrent`: display due or scheduled tasks as virtual text end of line for current line
+
 
 ### Task Dependencies
 
