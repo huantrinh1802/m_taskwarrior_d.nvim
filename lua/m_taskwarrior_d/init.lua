@@ -686,9 +686,9 @@ function M.setup(opts)
         vim.fn.matchadd("Conceal", M._config.id_part_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "" })
       M._concealTaskQuery =
         vim.fn.matchadd("Conceal", M._config.task_query_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "󰡦" })
-      vim.api.nvim_exec([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]], false)
-      vim.api.nvim_exec([[hi DueDate ctermfg=109 guifg=#6495ED ctermbg=NONE guibg=NONE]], false)
-      vim.api.nvim_exec([[hi DueSoon ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]], false)
+      vim.cmd([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]])
+      vim.cmd([[hi DueDate ctermfg=109 guifg=#6495ED ctermbg=NONE guibg=NONE]])
+      vim.cmd([[hi DueSoon ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]])
       M.utils.render_virtual_due_dates()
     end,
   })
