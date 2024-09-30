@@ -154,6 +154,8 @@ The goals of this plugin are:
   -- - comment_suffix = "-->",
   comment_prefix = "",
   comment_suffix = "",
+  -- The file pattern to trigger the conceal
+  file_patterns = { "*.md", "*.markdown" },
   -- More configurations will be added in the future
 }
 ```
