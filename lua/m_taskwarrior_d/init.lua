@@ -796,6 +796,13 @@ function M.setup(opts)
       print("No scratch window")
     end
   end, {})
+  vim.api.nvim_create_user_command("TWShowDueOrScheduled", function()
+    M.utils.render_virtual_due_dates()
+  end, {})
+  vim.api.nvim_create_user_command("TWShowDueOrScheduledCurrent", function()
+    local _, line_number = M.utils.get_line()
+    M.utils.render_virtual_due_dates(line_number - 1, line_number)
+  end, {})
 end
 
 return M
