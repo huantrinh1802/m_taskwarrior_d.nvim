@@ -693,6 +693,18 @@ function M.setup(opts)
     end,
   })
 
+  vim.api.nvim_create_autocmd({ "BufLeave" }, {
+    group = conceal_group,
+    pattern = M._config.file_pattern,
+    callback = function()
+      -- Get the file type of the current buffer
+      vim.opt.conceallevel = 2
+      vim.cmd([[hi Conceal ctermfg=NONE guifg=NONE]])
+      vim.cmd([[hi DueDate ctermfg=NONE guifg=NONE]])
+      vim.cmd([[hi DueSoon ctermfg=NONE guifg=NONE]])
+    end,
+  })
+
   vim.api.nvim_create_user_command("TWToggle", function()
     M.toggle_task()
   end, {})
