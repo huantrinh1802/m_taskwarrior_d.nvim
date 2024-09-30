@@ -19,6 +19,7 @@ M._config = {
   close_floating_window = { "q", "<Esc>", "<C-c>" },
   comment_prefix = "",
   comment_suffix = "",
+  file_patterns = { "*.md", "*.markdown" },
 }
 
 function M.sync_tasks(start_position, end_position)
@@ -677,7 +678,7 @@ function M.setup(opts)
   local conceal_group = vim.api.nvim_create_augroup("TWConceal", { clear = true })
   vim.api.nvim_create_autocmd({ "BufEnter" }, {
     group = conceal_group,
-    pattern = "*.md", -- Pattern to match Markdown files
+    pattern = M._config.file_pattern,
     callback = function()
       -- Get the file type of the current buffer
       vim.opt.conceallevel = 2
