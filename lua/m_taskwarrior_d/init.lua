@@ -678,7 +678,7 @@ function M.setup(opts)
   local conceal_group = vim.api.nvim_create_augroup("TWConceal", { clear = true })
   vim.api.nvim_create_autocmd({ "BufEnter" }, {
     group = conceal_group,
-    pattern = M._config.file_pattern,
+    pattern = M._config.file_patterns,
     callback = function()
       -- Get the file type of the current buffer
       vim.opt.conceallevel = 2
@@ -695,7 +695,7 @@ function M.setup(opts)
 
   vim.api.nvim_create_autocmd({ "BufLeave" }, {
     group = conceal_group,
-    pattern = M._config.file_pattern,
+    pattern = M._config.file_patterns,
     callback = function()
       -- Get the file type of the current buffer
       vim.opt.conceallevel = 2
