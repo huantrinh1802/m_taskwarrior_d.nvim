@@ -587,7 +587,14 @@ function M.query_tasks(line_number, query, report)
   if no_of_lines == line_number then
     vim.api.nvim_buf_set_lines(0, no_of_lines, no_of_lines, false, { "" })
   end
-  vim.api.nvim_buf_set_lines(0, line_number + 1, line_number + 1, false, markdown)
+  -- Filter out lines containing newlines or empty lines
+  local filtered_markdown = {}
+  for _, line in ipairs(markdown) do
+      if line ~= "" and not line:find("\n") then
+          table.insert(filtered_markdown, line)
+      end
+  end
+  vim.api.nvim_buf_set_lines(0, line_number + 1, line_number + 1, false, filtered_markdown)
 end
 
 function M.query_tasks_in_buffer()
