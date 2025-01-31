@@ -389,26 +389,30 @@ function M.render_tasks(tasks, depth)
     else
       new_task_status_sym = ">"
     end
-    table.insert(
-      markdown,
-      string.rep(" ", vim.opt_local.shiftwidth._value * depth)
-        .. M.default_list_symbol
-        .. " "
-        .. M.checkbox_prefix
-        .. new_task_status_sym
-        .. M.checkbox_suffix
-        .. " "
-        .. task.desc
-        .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-        .. " $id{"
-        .. task.uuid
-        .. "}"
-        .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
-    )
-    if task[1] then
-      local nested_tasks = M.render_tasks(task, depth + 1)
-      for _, nested_task in ipairs(nested_tasks) do
-        table.insert(markdown, nested_task)
+    if task.desc:find("\n") then
+      print(string.format("The task %s has a newline character. In order to render the task, please consider to remove the newline in the task's description", task.uuid))
+    else
+      table.insert(
+        markdown,
+        string.rep(" ", vim.opt_local.shiftwidth._value * depth)
+          .. M.default_list_symbol
+          .. " "
+          .. M.checkbox_prefix
+          .. new_task_status_sym
+          .. M.checkbox_suffix
+          .. " "
+          .. task.desc
+          .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
+          .. " $id{"
+          .. task.uuid
+          .. "}"
+          .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+      )
+      if task[1] then
+        local nested_tasks = M.render_tasks(task, depth + 1)
+        for _, nested_task in ipairs(nested_tasks) do
+          table.insert(markdown, nested_task)
+        end
       end
     end
   end
