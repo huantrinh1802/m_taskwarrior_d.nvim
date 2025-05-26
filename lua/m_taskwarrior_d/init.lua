@@ -1,6 +1,5 @@
 local M = {}
 M.task = require("m_taskwarrior_d.task")
-M.treesitter = require("m_taskwarrior_d.treesitter")
 M.utils = require("m_taskwarrior_d.utils")
 M.ui = require("m_taskwarrior_d.ui")
 M._concealTaskId = nil
