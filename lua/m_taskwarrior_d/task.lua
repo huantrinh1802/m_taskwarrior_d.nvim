@@ -68,9 +68,7 @@ end
 
 function M.modify_task(task_id, desc)
   local command = string.format("task %s mod \"%s\"", task_id, desc)
-  local handle = io.popen(command)
-  local result = handle:read("*a")
-  handle:close()
+  local _, result = M.execute_taskwarrior_command(command, false)
 end
 
 --Function to modify task's status completed, (pending), deleted, started, canceled
