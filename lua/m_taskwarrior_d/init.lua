@@ -552,7 +552,7 @@ function M.toggle_saved_queries(type)
 end
 
 function M.query_tasks(line_number, query, report)
-  local _, result = M.task.execute_taskwarrior_command("task " .. query .. " -TEMPLATE export " .. report, true)
+  local _, result = M.task.execute_taskwarrior_command("task " .. query .. " -TEMPLATE export " .. report .. " | jq 'sort_by(.entry)  | reverse'", true)
   if result == nil then
     print("No results")
     return
@@ -565,8 +565,9 @@ function M.query_tasks(line_number, query, report)
     print("No results")
     return
   end
+  local lookup_table = M.utils.build_lookup(tasks)
   for _, item in ipairs(tasks) do
-    local hierarchy = M.utils.build_hierarchy(item, visited, tasks)
+    local hierarchy = M.utils.build_hierarchy(item, visited, lookup_table)
     table.insert(processed_tasks, hierarchy)
   end
   local current_nested = 1
