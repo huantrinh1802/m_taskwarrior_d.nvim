@@ -349,24 +349,58 @@ function M.sync_task(current_line, line_number)
   end
 end
 
-function M.build_hierarchy(item, visited, items)
+function M.build_lookup(items)
+  local lookup = {}
+  for _, v in ipairs(items) do
+    lookup[v.uuid] = v
+  end
+  return lookup
+end
+
+function M.build_hierarchy(item, visited, lookup)
   local dependencies = item.depends
   if not dependencies then
     return { uuid = item.uuid, desc = item.description, status = item.status, tags = item.tags }
   else
     local hierarchy = { uuid = item.uuid, desc = item.description, status = item.status, tags = item.tags }
+    table.sort(dependencies, function(a, b)
+      local dep_a = lookup[a]
+      local dep_b = lookup[b]
+      if not dep_a or not dep_b then
+        return false
+      end
+
+      -- 4. Fallback: urgency
+      if (dep_a.id ~= 0 and dep_b.id ~= 0) and dep_a.id ~= dep_b.id then
+        return dep_a.id > dep_b.id
+      end
+      -- 2. Compare entry date (newest first or oldest first? assuming oldest first)
+      if dep_a.entry ~= dep_b.entry then
+        return dep_a.entry < dep_b.entry
+      end
+
+      -- 3. Tie-break: dependency chain check
+      local a_depends_on_b = dep_a.depends and vim.tbl_contains(dep_a.depends, dep_b.uuid)
+      local b_depends_on_a = dep_b.depends and vim.tbl_contains(dep_b.depends, dep_a.uuid)
+      if a_depends_on_b then
+        return true -- if b depends on a, a should come first
+      else
+        return false
+      end
+      -- 1. Check if they have dependencies
+      local a_has_deps = dep_a.depends and #dep_a.depends > 0
+      local b_has_deps = dep_b.depends and #dep_b.depends > 0
+      if a_has_deps ~= b_has_deps then
+        return a_has_deps
+      end
+    end)
+    print(vim.inspect(dependencies))
     for _, dependency in ipairs(dependencies) do
       if not visited[dependency] then
         visited[dependency] = true
-        local dependent_item = nil
-        for _, v in ipairs(items) do
-          if v.uuid == dependency then
-            dependent_item = v
-            break
-          end
-        end
+        local dependent_item = lookup[dependency]
         if dependent_item then
-          local dependent_hierarchy = M.build_hierarchy(dependent_item, visited, items)
+          local dependent_hierarchy = M.build_hierarchy(dependent_item, visited, lookup)
           table.insert(hierarchy, dependent_hierarchy)
         end
       end
@@ -390,7 +424,12 @@ function M.render_tasks(tasks, depth)
       new_task_status_sym = ">"
     end
     if task.desc:find("\n") then
-      print(string.format("The task %s has a newline character. In order to render the task, please consider to remove the newline in the task's description", task.uuid))
+      print(
+        string.format(
+          "The task %s has a newline character. In order to render the task, please consider to remove the newline in the task's description",
+          task.uuid
+        )
+      )
     else
       table.insert(
         markdown,
