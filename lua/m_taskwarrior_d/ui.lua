@@ -49,4 +49,39 @@ function M.trigger_hover(contents, title)
   return popup
 end
 
+function M.prompt_or_run(opts)
+  local args = opts.args
+  if args ~= nil and args ~= "" then
+    return opts.run(args)
+  end
+
+  local Input = require("nui.input")
+  local input = Input({
+    relative = "cursor",
+    position = 0,
+    size = { width = opts.width or 100 },
+    border = {
+      style = "single",
+      text = {
+        top = opts.title or "",
+        top_align = "center",
+      },
+    },
+    win_options = {
+      winhighlight = "Normal:Normal,FloatBorder:Normal",
+    },
+  }, {
+    prompt = opts.prompt or "",
+    default_value = opts.default_value or "",
+    on_submit = function(value)
+      if value == nil or value == "" then
+        return
+      end
+      opts.run(value)
+    end,
+  })
+
+  input:mount()
+end
+
 return M

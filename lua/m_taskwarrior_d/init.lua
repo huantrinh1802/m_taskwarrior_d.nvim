@@ -230,35 +230,21 @@ function M.view_task()
   end)
 end
 
-function M.run_with_current()
+function M.run_with_current(default_args)
   local current_line, line_number = M.utils.get_line()
   local _, uuid = M.utils.extract_uuid(current_line)
-  local Input = require("nui.input")
-  local input = Input({
-    relative = "cursor",
-    position = 0,
-    size = {
-      width = 100,
-    },
-    border = {
-      style = "single",
-      text = {
-        top = "Run task with " .. uuid,
-        top_align = "center",
-      },
-    },
-    win_options = {
-      winhighlight = "Normal:Normal,FloatBorder:Normal",
-    },
-  }, {
-    prompt = "",
-    default_value = "",
-    on_submit = function(value)
+  if uuid == nil then
+    return
+  end
+
+  M.ui.prompt_or_run({
+    args = default_args,
+    title = "Run task with " .. uuid,
+    run = function(value)
       M.task.execute_taskwarrior_command("task " .. uuid .. " " .. value, nil, true)
       M.utils.sync_task(current_line, line_number)
     end,
   })
-  input:mount()
 end
 
 local function split_by_newline(input)
@@ -272,29 +258,12 @@ end
 function M.run_task(args)
   local command = "task " .. table.concat(args, " ")
   if #args == 0 then
-    local Input = require("nui.input")
-    local input = Input({
-      relative = "cursor",
-      position = 0,
-      size = {
-        width = 100,
-      },
-      border = {
-        style = "single",
-        text = {
-          top = "Run task",
-          top_align = "center",
-        },
-      },
-      win_options = {
-        winhighlight = "Normal:Normal,FloatBorder:Normal",
-      },
-    }, {
-      on_submit = function(value)
+    M.ui.prompt_or_run({
+      title = "Run task",
+      run = function(value)
         M.run_task({ value })
       end,
     })
-    input:mount()
   else
     local _, result = M.task.execute_taskwarrior_command(command, true)
     if #result == 0 then
@@ -321,29 +290,12 @@ end
 
 function M.run_task_bulk(args)
   if #args == 0 then
-    local Input = require("nui.input")
-    local input = Input({
-      relative = "cursor",
-      position = 0,
-      size = {
-        width = 100,
-      },
-      border = {
-        style = "single",
-        text = {
-          top = "Run task",
-          top_align = "center",
-        },
-      },
-      win_options = {
-        winhighlight = "Normal:Normal,FloatBorder:Normal",
-      },
-    }, {
-      on_submit = function(value)
-        M.run_task({ value })
+    M.ui.prompt_or_run({
+      title = "Run task",
+      run = function(value)
+        M.run_task_bulk({ value })
       end,
     })
-    input:mount()
   else
     -- local _, result = M.task.execute_taskwarrior_command(command, true)
     -- if #result == 0 then
@@ -750,13 +702,21 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWView", function()
     M.view_task()
   end, {})
-  vim.api.nvim_create_user_command("TWRunWithCurrent", function()
-    M.run_with_current()
-    local _, line_number = M.utils.get_line()
-    if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+  vim.api.nvim_create_user_command("TWRunWithCurrent", function(args)
+    local current_line, line_number = M.utils.get_line()
+    local _, uuid = M.utils.extract_uuid(current_line)
+    if uuid ~= nil then
+      if args.args ~= nil and args.args ~= "" then
+        M.task.execute_taskwarrior_command("task " .. uuid .. " " .. args.args, nil, true)
+        M.utils.sync_task(current_line, line_number)
+      else
+        M.run_with_current()
+      end
+      if M._config.display_due_or_scheduled then
+        M.utils.render_virtual_due_dates(line_number)
+      end
     end
-  end, {})
+  end, { nargs = "*" })
   vim.api.nvim_create_user_command("TWRun", function(args)
     M.run_task(args.fargs)
     if M._config.display_due_or_scheduled then
