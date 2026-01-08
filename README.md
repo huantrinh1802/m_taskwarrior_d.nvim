@@ -143,6 +143,8 @@ The goals of this plugin are:
   task_statuses = { " ", ">", "x", "~" },
   -- The mapping between status and symbol in checkbox
   status_map = { [" "] = "pending", [">"] = "active", ["x"] = "completed", ["~"] = "deleted" },
+  -- List marker patterns (lua/vim regex) for checkboxes
+  list_pattern = { lua = "[%-%*%+]", vim = "[\\-\\*\\+]" },
   -- The checkbox prefix and suffix
   checkbox_prefix = "[",
   checkbox_suffix = "]",
@@ -254,12 +256,12 @@ If you are using `markdown.nvim`, you can set the following configuration:
 - `:TWView`: a quick view of more details of the task
   - It is focusable so you can copy texts from their
   - It will be dismissed once the cursor moves or reenter the buffer
-- `:TWRunWithCurrent`: extract the current UUID, and ask user for input. Run the command as follow `!task {uuid} {user input}`
+- `:TWRunWithCurrent`: extract the current UUID, and run a Taskwarrior command against it
+  - `:TWRunWithCurrent` (no args) opens an input field
+  - `:TWRunWithCurrent {args}` runs directly as `task {uuid} {args}`
 - `:TWRun`: there are two ways to use this command:
-  - `TWRun` without any arguments, an input component will appear and ask for your command
-    - Enter empty again, it will run `task`
-  - `TWRun {command}`
-    - Run the command as follow `task {user input}`
+  - `:TWRun` (no args) opens an input field and runs `task {input}`
+  - `:TWRun {args}` runs directly as `task {args}`
       - If the command has `add`, `del`, `mod` or `purge`, the output will print out only
       - Otherwise, the output will be put into a float, focusable window under the cursor. It is dismissed once the cursor moves or reenter the buffer
 - `:TWFocusFloat`: switch the focus to a floating window (or hover, triggered by `TWView`, `TWRunWithCurrent`, and `TWRun`).
@@ -271,6 +273,8 @@ If you are using `markdown.nvim`, you can set the following configuration:
   - The file is saved in `vim.fn.stdpath("data").."m_taskwarrior_d.nvim"`
 - `:TWSavedQueries`: will prompt a menu with the list of all saved queries, after an item is selected, a floating window will open with the output of `task {query}`
 - `:TWRunBulk`: similar to `TWRun`, but run commands on selected tasks in visual mode
+  - `:TWRunBulk` (no args) opens an input field
+  - `:TWRunBulk {args}` runs directly against each selected task
 - `:TWQueryTasks`: similar to `taskwiki`'s viewport, render the output of the `task {query}` as the list of tasks
   - Nested tasks are supported
   - In-sync with where it is first created
