@@ -703,18 +703,10 @@ function M.setup(opts)
     M.view_task()
   end, {})
   vim.api.nvim_create_user_command("TWRunWithCurrent", function(args)
-    local current_line, line_number = M.utils.get_line()
-    local _, uuid = M.utils.extract_uuid(current_line)
-    if uuid ~= nil then
-      if args.args ~= nil and args.args ~= "" then
-        M.task.execute_taskwarrior_command("task " .. uuid .. " " .. args.args, nil, true)
-        M.utils.sync_task(current_line, line_number)
-      else
-        M.run_with_current()
-      end
-      if M._config.display_due_or_scheduled then
-        M.utils.render_virtual_due_dates(line_number)
-      end
+    local _, line_number = M.utils.get_line()
+    M.run_with_current(args.args)
+    if M._config.display_due_or_scheduled then
+      M.utils.render_virtual_due_dates(line_number)
     end
   end, { nargs = "*" })
   vim.api.nvim_create_user_command("TWRun", function(args)
