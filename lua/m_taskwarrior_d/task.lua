@@ -31,6 +31,48 @@ function M.get_task_by(task_id, return_data)
     return nil
   end
 end
+
+-- Fetch multiple tasks in a single Taskwarrior invocation.
+-- Returns a lookup table: { [uuid] = task_data, ... }
+-- Splits into batches to avoid command-line length limits.
+local BULK_EXPORT_BATCH_SIZE = 50
+function M.bulk_export(uuids)
+  if not uuids or #uuids == 0 then
+    return {}
+  end
+  local lookup = {}
+  local i = 1
+  while i <= #uuids do
+    local batch = {}
+    local j = i
+    while j <= #uuids and j < i + BULK_EXPORT_BATCH_SIZE do
+      if j > i then
+        table.insert(batch, "or")
+      end
+      table.insert(batch, "uuid:" .. uuids[j])
+      j = j + 1
+    end
+    local args = { "task" }
+    for _, token in ipairs(batch) do
+      table.insert(args, token)
+    end
+    table.insert(args, "export")
+    local _, output = M.execute_task_args(args, true)
+    if output and #output > 0 then
+      local ok, task_list = pcall(vim.fn.json_decode, output)
+      if ok and task_list then
+        for _, task in ipairs(task_list) do
+          if task and task.uuid then
+            lookup[task.uuid] = task
+          end
+        end
+      end
+    end
+    i = j
+  end
+  return lookup
+end
+
 -- Execute taskwarrior directly with an argument list, bypassing the shell entirely.
 function M.execute_task_args(args, return_data, print_output)
   local obj = vim.system(args, { text = true }):wait()

@@ -338,24 +338,36 @@ function M.toggle_task_status(current_line, line_number, new_status)
   return new_status
 end
 
-function M.add_or_sync_task(line, replace_desc)
-  local list_sb, _, status = string.match(line, M.checkbox_pattern.lua)
+-- task_cache: optional { [uuid] = task_data } lookup table from a prior bulk_export call.
+-- When provided, no individual "task export" subprocess is spawned for existing tasks.
+-- replace_desc: when true, push the buffer description to Taskwarrior (TWUpdateCurrent path).
+--               when false/nil, pull TW's description into the buffer (TWSyncTasks path).
+function M.add_or_sync_task(line, replace_desc, task_cache)
+  local task = require("m_taskwarrior_d.task")
+  local list_sb, _, md_status = string.match(line, M.checkbox_pattern.lua)
   local desc = string.gsub(line, M.checkbox_pattern.lua, "")
   local result
   local _, _, uuid = string.match(line, M.id_part_pattern.lua)
   if uuid == nil then
-    uuid = require("m_taskwarrior_d.task").add_task(desc)
+    -- New task: add it to Taskwarrior and annotate the line.
+    uuid = task.add_task(desc)
     result = line:gsub("%s+$", "")
       .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
       .. " $id{"
       .. uuid
       .. "}"
       .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+    -- Newly added tasks already have the correct status from the `task add` call;
+    -- no modify needed here.
   else
     desc = string.gsub(desc, M.id_part_pattern.lua, "")
-    if require("m_taskwarrior_d.task").get_task_by(uuid) == nil then
+    -- Use the cache if available; fall back to individual export only when needed.
+    local cached = task_cache and task_cache[uuid]
+    if cached == nil and task_cache ~= nil then
+      -- UUID not in cache: task was not found by bulk_export (likely deleted).
+      -- Re-create it.
       line = string.gsub(line, M.id_part_pattern.lua, "")
-      uuid = require("m_taskwarrior_d.task").add_task(desc)
+      uuid = task.add_task(desc)
       result = line:gsub("%s+$", "")
         .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
         .. " $id{"
@@ -363,28 +375,40 @@ function M.add_or_sync_task(line, replace_desc)
         .. "}"
         .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
     else
-      local new_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
-      if new_task then
-        local active = false
-        if new_task.status == "pending" and new_task["start"] ~= nil then
-          active = true
-        end
-        local new_task_status_sym
+      -- No cache (called outside of sync_tasks) or task is in the cache.
+      local new_task = cached or task.get_task_by(uuid, "task")
+      if new_task == nil then
+        -- Task not found in Taskwarrior at all: re-create it.
+        line = string.gsub(line, M.id_part_pattern.lua, "")
+        uuid = task.add_task(desc)
+        result = line:gsub("%s+$", "")
+          .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
+          .. " $id{"
+          .. uuid
+          .. "}"
+          .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+      else
+        local active = new_task.status == "pending" and new_task["start"] ~= nil
+        local tw_status_sym
         if not active then
-          new_task_status_sym, _ = findPair(M.status_map, nil, new_task.status)
+          tw_status_sym, _ = findPair(M.status_map, nil, new_task.status)
         else
-          new_task_status_sym = ">"
+          tw_status_sym = ">"
         end
-        status = new_task_status_sym
         uuid = new_task.uuid
         local spaces = count_leading_spaces(line)
         if replace_desc then
-          require("m_taskwarrior_d.task").modify_task(uuid, desc)
+          -- TWUpdateCurrent path: buffer description → Taskwarrior.
+          task.modify_task(uuid, desc)
+          -- Only update status in TW when the buffer checkbox differs from TW's status.
+          if md_status ~= tw_status_sym then
+            task.modify_task_status(uuid, md_status)
+          end
           result = string.rep(" ", spaces or 0)
             .. list_sb
             .. " "
             .. M.checkbox_prefix
-            .. new_task_status_sym
+            .. tw_status_sym
             .. M.checkbox_suffix
             .. " "
             .. M.trim(desc)
@@ -394,11 +418,13 @@ function M.add_or_sync_task(line, replace_desc)
             .. "}"
             .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
         else
+          -- TWSyncTasks path: Taskwarrior is source of truth.
+          -- Pull TW's status/description into the buffer. No write-back needed.
           result = string.rep(" ", spaces or 0)
             .. list_sb
             .. " "
             .. M.checkbox_prefix
-            .. new_task_status_sym
+            .. tw_status_sym
             .. M.checkbox_suffix
             .. " "
             .. new_task.description
@@ -408,12 +434,9 @@ function M.add_or_sync_task(line, replace_desc)
             .. "}"
             .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
         end
-      else
-        result = line
       end
     end
   end
-  require("m_taskwarrior_d.task").modify_task_status(uuid, status)
   return result, uuid
 end
 
@@ -426,10 +449,13 @@ function M.extract_uuid(line)
   return conceal, uuid
 end
 
-function M.check_dependencies(line_number)
+-- Returns (current_uuid, deps_list, child_count) where child_count is the number
+-- of directly-indented child lines processed (so the caller can skip them).
+-- task_cache: optional bulk_export lookup table.
+function M.check_dependencies(line_number, task_cache)
   local current_line, _ = M.get_line(line_number)
   if current_line == nil then
-    return nil
+    return nil, nil, 0
   end
   local _, current_uuid = M.extract_uuid(current_line)
   local current_number_of_spaces = count_leading_spaces(current_line)
@@ -437,18 +463,18 @@ function M.check_dependencies(line_number)
   local count = 1
   local next_line = M.get_line(line_number + 1)
   if next_line == nil then
-    return nil, nil
+    return nil, nil, 0
   end
   local next_number_of_spaces = count_leading_spaces(next_line)
   if next_number_of_spaces == nil then
-    return nil, nil
+    return nil, nil, 0
   end
   local _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
   if checkbox == nil then
-    return nil, nil
+    return nil, nil, 0
   end
   while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
-    local result, uuid = M.add_or_sync_task(next_line)
+    local result, uuid = M.add_or_sync_task(next_line, nil, task_cache)
     vim.api.nvim_buf_set_lines(0, line_number + count - 1, line_number + count, false, { result })
     table.insert(deps, uuid)
     count = count + 1
@@ -458,18 +484,39 @@ function M.check_dependencies(line_number)
       _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
     end
   end
-  return current_uuid, deps
+  return current_uuid, deps, count - 1
 end
 
-function M.sync_task(current_line, line_number)
-  local result, _ = M.add_or_sync_task(current_line)
+-- Compare two lists of UUIDs (order-insensitive) and return true if they differ.
+local function deps_changed(new_deps, tw_depends)
+  local tw_deps = tw_depends or {}
+  if #new_deps ~= #tw_deps then return true end
+  local set = {}
+  for _, v in ipairs(tw_deps) do set[v] = true end
+  for _, v in ipairs(new_deps) do
+    if not set[v] then return true end
+  end
+  return false
+end
+
+-- Sync a single task line and its indented children.
+-- Returns the number of child lines processed so the caller can skip them.
+-- task_cache: optional bulk_export lookup table.
+function M.sync_task(current_line, line_number, task_cache)
+  local result, _ = M.add_or_sync_task(current_line, nil, task_cache)
   if result then
     vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
   end
-  local current_uuid, deps = M.check_dependencies(line_number)
-  if current_uuid ~= nil then
-    require("m_taskwarrior_d.task").add_task_deps(current_uuid, deps)
+  local current_uuid, deps, child_count = M.check_dependencies(line_number, task_cache)
+  if current_uuid ~= nil and deps and #deps > 0 then
+    -- Only write deps back to Taskwarrior when they've actually changed.
+    local cached = task_cache and task_cache[current_uuid]
+    local tw_depends = cached and cached.depends or nil
+    if deps_changed(deps, tw_depends) then
+      require("m_taskwarrior_d.task").add_task_deps(current_uuid, deps)
+    end
   end
+  return child_count
 end
 
 function M.build_lookup(items)
@@ -517,7 +564,6 @@ function M.build_hierarchy(item, visited, lookup)
         return a_has_deps
       end
     end)
-    print(vim.inspect(dependencies))
     for _, dependency in ipairs(dependencies) do
       if not visited[dependency] then
         visited[dependency] = true
@@ -581,7 +627,43 @@ function M.render_tasks(tasks, depth)
   return markdown
 end
 
-function M.apply_context_data(line, line_number)
+-- Check whether a list of safe mod tokens is already reflected in an existing task.
+-- Returns true if all mods are already present (no update needed).
+local function task_has_mods(tw_task, mods)
+  for _, token in ipairs(mods) do
+    local attr, value = token:match("^([%w_]+):(.+)$")
+    if attr then
+      -- Normalise common attribute aliases.
+      if attr == "proj" then attr = "project" end
+      local tw_val = tw_task[attr]
+      if tw_val == nil then
+        return false
+      end
+      -- Taskwarrior values may be sub-project strings; do a prefix match.
+      if tostring(tw_val) ~= value then
+        return false
+      end
+    elseif token:match("^%+[%w_%-]+$") then
+      local tag = token:sub(2)
+      local tags = tw_task.tags or {}
+      local found = false
+      for _, t in ipairs(tags) do
+        if t == tag then found = true; break end
+      end
+      if not found then return false end
+    elseif token:match("^%-[%w_%-]+$") then
+      -- Tag removal: if the tag is still present, we need to update.
+      local tag = token:sub(2)
+      local tags = tw_task.tags or {}
+      for _, t in ipairs(tags) do
+        if t == tag then return false end
+      end
+    end
+  end
+  return true
+end
+
+function M.apply_context_data(line, line_number, task_cache)
   local no_of_lines = vim.api.nvim_buf_line_count(0)
   if line_number == no_of_lines then
     return
@@ -616,11 +698,17 @@ function M.apply_context_data(line, line_number)
       table.insert(tasks, uuid)
     end
   end
+  local task = require("m_taskwarrior_d.task")
   for _, task_uuid in ipairs(tasks) do
-    local task = require("m_taskwarrior_d.task")
-    local args = { "task", task_uuid, "mod" }
-    task.append_tokens(args, query)
-    task.execute_task_args(args)
+    local cached = task_cache and task_cache[task_uuid]
+    -- Skip the modify call if the task already has all the context attributes.
+    if cached and task_has_mods(cached, mods) then
+      -- Nothing to update.
+    else
+      local args = { "task", task_uuid, "mod" }
+      task.append_tokens(args, query)
+      task.execute_task_args(args)
+    end
   end
 end
 
@@ -667,27 +755,18 @@ function M.parse_ISO8601_date(iso_date)
   })
 end
 
--- Add this or ensure your M.task module provides an async way to get multiple tasks
-
--- This function is a placeholder for an actual async implementation that
--- executes 'task (uuid1 or uuid2 or ...) export' and calls a callback.
+-- Fetch task data for a list of UUIDs using a single bulk Taskwarrior invocation,
+-- then invoke callback(tasks) where tasks is a list of task tables (excluding
+-- deleted/completed tasks).
 local function get_task_data_async(uuids, callback)
-    -- In a real plugin, this would use vim.fn.jobstart or vim.loop.spawn
-    -- to run 'task ... export' non-blockingly.
-
-    -- *** PLACEHOLDER IMPLEMENTATION ***
-    local tasks = {}
-    for _, uuid in ipairs(uuids) do
-        -- Simulate the time-consuming, blocking fetch
-        local task_data = M.task.get_task_by(uuid, "task") -- Still blocking here for simplicity
-        if task_data and (task_data.status ~= "deleted" and task_data.status ~= "completed") then
-            print(task_data.status)
-            table.insert(tasks, task_data)
-        end
+  local lookup = M.task.bulk_export(uuids)
+  local tasks = {}
+  for _, task_data in pairs(lookup) do
+    if task_data.status ~= "deleted" and task_data.status ~= "completed" then
+      table.insert(tasks, task_data)
     end
-
-    -- Run the callback with the fetched data
-    callback(tasks)
+  end
+  callback(tasks)
 end
 
 function M.render_virtual_due_dates(start_line, end_line)

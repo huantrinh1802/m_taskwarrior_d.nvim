@@ -29,19 +29,39 @@ function M.sync_tasks(start_position, end_position)
   if end_position == nil then
     end_position = vim.api.nvim_buf_line_count(0)
   end
-  local headers = {}
-  -- Iterate through each line to get the number of leading spaces
+
+  -- First pass: collect all UUIDs present in the buffer range so we can
+  -- fetch all task data in a single Taskwarrior invocation.
+  local all_uuids = {}
+  local uuid_seen = {}
   for line_number = start_position, end_position do
     local current_line, _ = M.utils.get_line(line_number)
+    local _, _, uuid = string.match(current_line, M._config.id_part_pattern.lua)
+    if uuid and not uuid_seen[uuid] then
+      uuid_seen[uuid] = true
+      table.insert(all_uuids, uuid)
+    end
+  end
+  local task_cache = M.task.bulk_export(all_uuids)
+
+  -- Second pass: sync each task line, skipping child lines already handled
+  -- by check_dependencies() to avoid processing them twice.
+  local headers = {}
+  local line_number = start_position
+  while line_number <= end_position do
+    local current_line, _ = M.utils.get_line(line_number)
     if string.match(current_line, M._config.checkbox_pattern.lua) then
-      M.utils.sync_task(current_line, line_number)
+      local child_count = M.utils.sync_task(current_line, line_number, task_cache)
+      -- Skip lines that were already processed as children of this task.
+      line_number = line_number + child_count
     end
     if string.match(current_line, M._config.task_query_pattern.lua) then
       table.insert(headers, { line = current_line, line_number = line_number })
     end
+    line_number = line_number + 1
   end
   for _, header in pairs(headers) do
-    M.utils.apply_context_data(header.line, header.line_number)
+    M.utils.apply_context_data(header.line, header.line_number, task_cache)
   end
 end
 
