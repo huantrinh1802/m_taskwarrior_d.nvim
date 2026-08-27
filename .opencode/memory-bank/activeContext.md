@@ -9,7 +9,7 @@ Performance fixes for due/scheduled rendering and full-buffer sync have been imp
 3. **Optimized `init.sync_tasks`** — first pass collects UUIDs, second pass syncs each line using a cached task map, eliminating one `task export` call per existing task.
 4. **Optimized `utils.apply_context_data`** — batched `task mod` calls into chunks of 50 UUIDs instead of one process per task.
 5. **Updated `task.get_tasks_by`** — now reuses the bulk export.
-6. **Fixed extmark/Conceal correctness** — defined the missing `DueOverdue` highlight, guarded async extmark updates with `nvim_buf_is_valid`, switched `conceallevel` to window-local, and delete old `matchadd` IDs before adding new ones to avoid duplicate conceal matches.
+6. **Fixed extmark/Conceal correctness** — defined the missing `DueOverdue` highlight, guarded async extmark updates with `nvim_buf_is_valid`, switched `conceallevel` to window-local, and replaced window-local `matchadd` with buffer-local conceal extmarks (`utils.render_conceal_marks`) so conceal never duplicates when switching Markdown buffers.
 
 ## Validation
 - `luajit -b` syntax check passed for `task.lua`, `utils.lua`, and `init.lua`.
