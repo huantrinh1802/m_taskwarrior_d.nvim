@@ -15,6 +15,7 @@
 - Updated `init.sync_tasks` to collect all UUIDs up front, batch-export them once, and pass a task cache through `sync_task`/`add_or_sync_task`.
 - Updated `utils.apply_context_data` to batch `task mod` calls into chunks of 50 UUIDs.
 - Updated `task.get_tasks_by` to use the new bulk export.
+- Fixed extmark/Conceal correctness: defined missing `DueOverdue` highlight, guarded async extmark updates against deleted buffers, made `conceallevel` window-local, and removed duplicate `matchadd` conceal matches on buffer re-entry.
 
 ## Validation
 - LuaJIT syntax check passed for all modified modules.
