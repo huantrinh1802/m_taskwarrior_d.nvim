@@ -755,6 +755,11 @@ function M.render_virtual_due_dates(start_line, end_line)
   -- This replaces the previous O(n) blocking calls with O(1) Taskwarrior calls.
   M.task.get_tasks_bulk(all_uuids, function(tasks)
     vim.schedule(function()
+      -- The buffer may have been deleted while Taskwarrior was running.
+      if not vim.api.nvim_buf_is_valid(bufnr) then
+        return
+      end
+
       -- Create a map for quick lookups: uuid -> task_data
       local task_data_map = {}
       for _, task in ipairs(tasks) do
