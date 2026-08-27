@@ -338,7 +338,7 @@ function M.toggle_task_status(current_line, line_number, new_status)
   return new_status
 end
 
-function M.add_or_sync_task(line, replace_desc)
+function M.add_or_sync_task(line, replace_desc, task_cache)
   local list_sb, _, status = string.match(line, M.checkbox_pattern.lua)
   local desc = string.gsub(line, M.checkbox_pattern.lua, "")
   local result
@@ -353,7 +353,9 @@ function M.add_or_sync_task(line, replace_desc)
       .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
   else
     desc = string.gsub(desc, M.id_part_pattern.lua, "")
-    if require("m_taskwarrior_d.task").get_task_by(uuid) == nil then
+    local cached_task = task_cache and task_cache[uuid]
+    local task_exists = cached_task ~= nil or require("m_taskwarrior_d.task").get_task_by(uuid) ~= nil
+    if not task_exists then
       line = string.gsub(line, M.id_part_pattern.lua, "")
       uuid = require("m_taskwarrior_d.task").add_task(desc)
       result = line:gsub("%s+$", "")
@@ -363,7 +365,7 @@ function M.add_or_sync_task(line, replace_desc)
         .. "}"
         .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
     else
-      local new_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
+      local new_task = cached_task or require("m_taskwarrior_d.task").get_task_by(uuid, "task")
       if new_task then
         local active = false
         if new_task.status == "pending" and new_task["start"] ~= nil then
@@ -426,7 +428,7 @@ function M.extract_uuid(line)
   return conceal, uuid
 end
 
-function M.check_dependencies(line_number)
+function M.check_dependencies(line_number, task_cache)
   local current_line, _ = M.get_line(line_number)
   if current_line == nil then
     return nil
@@ -448,7 +450,7 @@ function M.check_dependencies(line_number)
     return nil, nil
   end
   while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
-    local result, uuid = M.add_or_sync_task(next_line)
+    local result, uuid = M.add_or_sync_task(next_line, false, task_cache)
     vim.api.nvim_buf_set_lines(0, line_number + count - 1, line_number + count, false, { result })
     table.insert(deps, uuid)
     count = count + 1
@@ -461,12 +463,12 @@ function M.check_dependencies(line_number)
   return current_uuid, deps
 end
 
-function M.sync_task(current_line, line_number)
-  local result, _ = M.add_or_sync_task(current_line)
+function M.sync_task(current_line, line_number, task_cache)
+  local result, _ = M.add_or_sync_task(current_line, false, task_cache)
   if result then
     vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
   end
-  local current_uuid, deps = M.check_dependencies(line_number)
+  local current_uuid, deps = M.check_dependencies(line_number, task_cache)
   if current_uuid ~= nil then
     require("m_taskwarrior_d.task").add_task_deps(current_uuid, deps)
   end
@@ -616,11 +618,22 @@ function M.apply_context_data(line, line_number)
       table.insert(tasks, uuid)
     end
   end
-  for _, task_uuid in ipairs(tasks) do
-    local task = require("m_taskwarrior_d.task")
-    local args = { "task", task_uuid, "mod" }
-    task.append_tokens(args, query)
-    task.execute_task_args(args)
+  if #tasks == 0 or #query == 0 then
+    return
+  end
+
+  -- Batch the modifications: one Taskwarrior process per chunk of UUIDs
+  -- instead of one process per task.
+  local chunk_size = 50
+  local task_mod = require("m_taskwarrior_d.task")
+  for i = 1, #tasks, chunk_size do
+    local chunk = {}
+    for j = i, math.min(i + chunk_size - 1, #tasks) do
+      table.insert(chunk, tasks[j])
+    end
+    local args = { "task", table.concat(chunk, " or "), "mod" }
+    task_mod.append_tokens(args, query)
+    task_mod.execute_task_args(args)
   end
 end
 
@@ -667,27 +680,47 @@ function M.parse_ISO8601_date(iso_date)
   })
 end
 
--- Add this or ensure your M.task module provides an async way to get multiple tasks
+local function calculate_time_diff(task_data)
+  local target_time
+  local time_text = ""
 
--- This function is a placeholder for an actual async implementation that
--- executes 'task (uuid1 or uuid2 or ...) export' and calls a callback.
-local function get_task_data_async(uuids, callback)
-    -- In a real plugin, this would use vim.fn.jobstart or vim.loop.spawn
-    -- to run 'task ... export' non-blockingly.
+  if task_data.scheduled then
+    time_text = "Scheduled: "
+    target_time = M.parse_ISO8601_date(task_data.scheduled)
+  end
 
-    -- *** PLACEHOLDER IMPLEMENTATION ***
-    local tasks = {}
-    for _, uuid in ipairs(uuids) do
-        -- Simulate the time-consuming, blocking fetch
-        local task_data = M.task.get_task_by(uuid, "task") -- Still blocking here for simplicity
-        if task_data and (task_data.status ~= "deleted" and task_data.status ~= "completed") then
-            print(task_data.status)
-            table.insert(tasks, task_data)
-        end
-    end
+  if task_data.due then
+    time_text = "Due: "
+    target_time = M.parse_ISO8601_date(task_data.due)
+  end
 
-    -- Run the callback with the fetched data
-    callback(tasks)
+  if not target_time then
+    return
+  end
+
+  local current_time = os.time()
+  local time_diff = os.difftime(target_time, current_time)
+
+  local days = math.floor(time_diff / (24 * 3600))
+  local hours = math.floor((time_diff % (24 * 3600)) / 3600)
+  local minutes = math.floor((time_diff % 3600) / 60)
+
+  local highlight_group
+  local display_text
+  if days > 0 then
+    display_text = string.format("%d days, %d hours left", days, hours)
+    highlight_group = "DueDate"
+  elseif days >= 0 and hours >= 0 and minutes >= 0 then -- Due soon or within the next hour
+    display_text = string.format("%d hours, %d minutes left", hours, minutes)
+    highlight_group = "DueSoon"
+  else -- Overdue (time_diff is negative)
+    local abs_diff = -time_diff
+    local days_ago = math.floor(abs_diff / (24 * 3600))
+    local hours_ago = math.floor((abs_diff % (24 * 3600)) / 3600)
+    display_text = string.format("OVERDUE: %d days, %d hours ago", days_ago, hours_ago)
+    highlight_group = "DueOverdue" -- Assuming you define this highlight group
+  end
+  return { time_text .. display_text, highlight_group }
 end
 
 function M.render_virtual_due_dates(start_line, end_line)
@@ -695,12 +728,13 @@ function M.render_virtual_due_dates(start_line, end_line)
   start_line = start_line or 0
   end_line = end_line or -1
 
-  local lines = vim.api.nvim_buf_get_lines(0, start_line, end_line, false)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local lines = vim.api.nvim_buf_get_lines(bufnr, start_line, end_line, false)
   local line_to_uuid = {}
   local all_uuids = {}
 
   -- Clear all existing marks first to avoid flickering
-  vim.api.nvim_buf_clear_namespace(0, M.ns_due_id, start_line, end_line)
+  vim.api.nvim_buf_clear_namespace(bufnr, M.ns_due_id, start_line, end_line)
 
   -- 2. Collect all UUIDs and map them to line numbers (non-blocking)
   for i, line_content in ipairs(lines) do
@@ -717,75 +751,32 @@ function M.render_virtual_due_dates(start_line, end_line)
     return
   end
 
-  -- 3. Asynchronously fetch all task data (Major optimization)
-  -- Replace get_task_data_async with your actual async function
-  -- that calls Taskwarrior once for all tasks.
-  get_task_data_async(all_uuids, function(tasks)
-      -- This function runs *after* the Taskwarrior process completes,
-      -- allowing the editor to remain responsive during the wait.
-
+  -- 3. Asynchronously fetch all task data with a single (or chunked) export.
+  -- This replaces the previous O(n) blocking calls with O(1) Taskwarrior calls.
+  M.task.get_tasks_bulk(all_uuids, function(tasks)
+    vim.schedule(function()
       -- Create a map for quick lookups: uuid -> task_data
       local task_data_map = {}
       for _, task in ipairs(tasks) do
+        if task and task.uuid then
           task_data_map[task.uuid] = task
+        end
       end
 
-      -- 4. Process data and set extmarks (non-blocking)
+      -- 4. Process data and set extmarks on the main Neovim thread.
       for uuid, line_idx in pairs(line_to_uuid) do
-          local task_data = task_data_map[uuid]
-
-          if task_data and (task_data.due or task_data.scheduled) then
-              -- Move time calculation logic into a local function for clarity
-              local function calculate_time_diff(task_data)
-                  local target_time
-                  local time_text = ""
-
-                  if task_data.scheduled then
-                      time_text = "Scheduled: "
-                      target_time = M.parse_ISO8601_date(task_data.scheduled)
-                  end
-
-                  if task_data.due then
-                      time_text = "Due: "
-                      target_time = M.parse_ISO8601_date(task_data.due)
-                  end
-
-                  if not target_time then return end
-
-                  local current_time = os.time()
-                  local time_diff = os.difftime(target_time, current_time)
-
-                  local days = math.floor(time_diff / (24 * 3600))
-                  local hours = math.floor((time_diff % (24 * 3600)) / 3600)
-                  local minutes = math.floor((time_diff % 3600) / 60)
-
-                  local highlight_group
-                  local display_text
-                  if days > 0 then
-                      display_text = string.format("%d days, %d hours left", days, hours)
-                      highlight_group = "DueDate"
-                  elseif days >=0 and hours >= 0 and minutes >= 0 then -- Due soon or within the next hour
-                      display_text = string.format("%d hours, %d minutes left", hours, minutes)
-                      highlight_group = "DueSoon"
-                  else -- Overdue (time_diff is negative)
-                      local abs_diff = -time_diff
-                      local days_ago = math.floor(abs_diff / (24 * 3600))
-                      local hours_ago = math.floor((abs_diff % (24 * 3600)) / 3600)
-                      display_text = string.format("OVERDUE: %d days, %d hours ago", days_ago, hours_ago)
-                      highlight_group = "DueOverdue" -- Assuming you define this highlight group
-                  end
-                  return { time_text .. display_text, highlight_group }
-              end
-
-              local text_tuple = calculate_time_diff(task_data)
-              if text_tuple then
-                  vim.api.nvim_buf_set_extmark(0, M.ns_due_id, line_idx, 0, {
-                      virt_text = { text_tuple },
-                      virt_text_pos = "eol",
-                  })
-              end
+        local task_data = task_data_map[uuid]
+        if task_data and (task_data.status ~= "deleted" and task_data.status ~= "completed") and (task_data.due or task_data.scheduled) then
+          local text_tuple = calculate_time_diff(task_data)
+          if text_tuple then
+            vim.api.nvim_buf_set_extmark(bufnr, M.ns_due_id, line_idx, 0, {
+              virt_text = { text_tuple },
+              virt_text_pos = "eol",
+            })
           end
+        end
       end
-  end) -- End of M.task.get_task_data_async callback
+    end)
+  end)
 end
 return M
