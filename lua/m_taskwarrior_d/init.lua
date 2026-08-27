@@ -30,16 +30,40 @@ function M.sync_tasks(start_position, end_position)
     end_position = vim.api.nvim_buf_line_count(0)
   end
   local headers = {}
-  -- Iterate through each line to get the number of leading spaces
+  local uuids = {}
+  local task_lines = {}
+
+  -- First pass: collect task lines and UUIDs to batch Taskwarrior lookups.
   for line_number = start_position, end_position do
     local current_line, _ = M.utils.get_line(line_number)
     if string.match(current_line, M._config.checkbox_pattern.lua) then
-      M.utils.sync_task(current_line, line_number)
+      table.insert(task_lines, { line = current_line, line_number = line_number })
+      local _, uuid = M.utils.extract_uuid(current_line)
+      if uuid then
+        table.insert(uuids, uuid)
+      end
     end
     if string.match(current_line, M._config.task_query_pattern.lua) then
       table.insert(headers, { line = current_line, line_number = line_number })
     end
   end
+
+  -- Batch export all known UUIDs in one (or chunked) Taskwarrior call.
+  local task_cache = {}
+  if #uuids > 0 then
+    local tasks = M.task.get_tasks_bulk_sync(uuids)
+    for _, task in ipairs(tasks) do
+      if task and task.uuid then
+        task_cache[task.uuid] = task
+      end
+    end
+  end
+
+  -- Second pass: sync tasks using the cached export data.
+  for _, item in ipairs(task_lines) do
+    M.utils.sync_task(item.line, item.line_number, task_cache)
+  end
+
   for _, header in pairs(headers) do
     M.utils.apply_context_data(header.line, header.line_number)
   end
