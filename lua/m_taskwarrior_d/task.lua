@@ -99,21 +99,7 @@ function M.get_blocked_tasks_by(uuid)
 end
 
 function M.get_tasks_by(uuids)
-  local tasks = {}
-  for _, uuid in ipairs(uuids) do
-    local _, result = M.execute_task_args({ "task", uuid, "export" }, true)
-    if result then
-      if vim == nil then
-        local json = require("cjson")
-        result = json.decode(result)
-      else
-        result = vim.fn.json_decode(result)
-      end
-      if result then
-        table.insert(tasks, result[1])
-      end
-    end
-  end
+  local tasks = M.get_tasks_bulk_sync(uuids)
   return true, tasks
 end
 
@@ -123,6 +109,66 @@ function M.check_if_task_is_blocked(uuid)
     return false
   end
   return true
+end
+
+-- Fetch many tasks with a single (or chunked) Taskwarrior export.
+-- `uuids` is a list of UUID strings. `callback(tasks)` receives the
+-- decoded array of task objects asynchronously via vim.system.
+function M.get_tasks_bulk(uuids, callback)
+  if not uuids or #uuids == 0 then
+    callback({})
+    return
+  end
+
+  local chunk_size = 100
+  local all_tasks = {}
+  local total_chunks = math.ceil(#uuids / chunk_size)
+  local completed = 0
+
+  local function on_chunk_done(tasks)
+    if tasks then
+      for _, task in ipairs(tasks) do
+        table.insert(all_tasks, task)
+      end
+    end
+    completed = completed + 1
+    if completed == total_chunks then
+      callback(all_tasks)
+    end
+  end
+
+  for i = 1, #uuids, chunk_size do
+    local chunk = {}
+    for j = i, math.min(i + chunk_size - 1, #uuids) do
+      table.insert(chunk, uuids[j])
+    end
+    local args = { "task", table.concat(chunk, " or "), "export" }
+    vim.system(args, { text = true }, function(obj)
+      local tasks = {}
+      if obj.code == 0 and obj.stdout and #obj.stdout > 0 then
+        local ok, decoded = pcall(vim.fn.json_decode, obj.stdout)
+        if ok and decoded then
+          tasks = decoded
+        end
+      end
+      on_chunk_done(tasks)
+    end)
+  end
+end
+
+-- Synchronous wrapper around get_tasks_bulk for callers that must block.
+function M.get_tasks_bulk_sync(uuids)
+  local tasks = {}
+  local done = false
+  M.get_tasks_bulk(uuids, function(result)
+    tasks = result
+    done = true
+  end)
+  -- Spin-yield until the async batch export completes.
+  while not done do
+    vim.wait(10)
+  end
+  return tasks
 end
 
 return M
