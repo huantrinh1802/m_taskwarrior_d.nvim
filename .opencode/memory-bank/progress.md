@@ -16,6 +16,7 @@
 - Updated `utils.apply_context_data` to batch `task mod` calls into chunks of 50 UUIDs.
 - Updated `task.get_tasks_by` to use the new bulk export.
 - Fixed extmark/Conceal correctness: defined missing `DueOverdue` highlight, guarded async extmark updates against deleted buffers, made `conceallevel` window-local, and removed duplicate `matchadd` conceal matches on buffer re-entry.
+- Replaced window-local `matchadd` conceal with buffer-local extmarks via `utils.render_conceal_marks()`, eliminating duplicate conceal matches when switching Markdown buffers.
 
 ## Validation
 - LuaJIT syntax check passed for all modified modules.
