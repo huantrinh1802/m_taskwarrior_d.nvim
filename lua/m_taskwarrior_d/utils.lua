@@ -46,9 +46,86 @@ end
 
 function M.set_config(opts)
   M.ns_due_id = vim.api.nvim_create_namespace("due")
+  M.ns_conceal_id = vim.api.nvim_create_namespace("conceal")
   for k, v in pairs(opts) do
     M[k] = v
   end
+end
+
+-- Find all non-overlapping positions of `pattern` in `line`.
+-- Returns a list of { start_col = 0-based, end_col = exclusive }.
+local function find_all_positions(line, pattern)
+  local positions = {}
+  local start_pos = 1
+  while start_pos <= #line do
+    local start_col, end_col = string.find(line, pattern, start_pos)
+    if not start_col then
+      break
+    end
+    table.insert(positions, { start_col = start_col - 1, end_col = end_col })
+    start_pos = end_col + 1
+  end
+  return positions
+end
+
+-- Concealable spans of $id{...} and $query{...} markers in a single line.
+-- Returns a list of { start_col = 0-based, end_col = exclusive, icon = str }.
+function M.conceal_positions(line)
+  local conceal_marks = {
+    { pattern = M.id_part_pattern.lua, icon = "" },
+    { pattern = M.task_query_pattern and M.task_query_pattern.lua, icon = "󰡦" },
+  }
+  local positions = {}
+  for _, mark in ipairs(conceal_marks) do
+    if mark.pattern then
+      for _, pos in ipairs(find_all_positions(line, mark.pattern)) do
+        pos.icon = mark.icon
+        table.insert(positions, pos)
+      end
+    end
+  end
+  return positions
+end
+
+-- Buffers whose $id{...}/$query{...} markers get concealed, keyed by bufnr.
+M.conceal_buffers = {}
+
+-- Conceal markers in `bufnr` from a decoration provider. Ephemeral extmarks
+-- are recomputed from the visible lines on every redraw, so ids added by a
+-- sync, typed, or pasted are concealed immediately, and nothing is stored in
+-- the buffer that could duplicate when the buffer is re-entered.
+function M.enable_conceal(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  M.conceal_buffers[bufnr] = true
+  if M.conceal_provider_set then
+    return
+  end
+  M.conceal_provider_set = true
+  vim.api.nvim_set_decoration_provider(M.ns_conceal_id, {
+    -- One pass over the visible rows per window redraw; returning false
+    -- skips per-line on_line callbacks.
+    on_win = function(_, _, buf, toprow, botrow)
+      if not M.conceal_buffers[buf] then
+        return false
+      end
+      local lines = vim.api.nvim_buf_get_lines(buf, toprow, botrow + 1, false)
+      for i, line_content in ipairs(lines) do
+        for _, pos in ipairs(M.conceal_positions(line_content)) do
+          vim.api.nvim_buf_set_extmark(buf, M.ns_conceal_id, toprow + i - 1, pos.start_col, {
+            end_col = pos.end_col,
+            conceal = pos.icon,
+            hl_group = "Conceal",
+            ephemeral = true,
+          })
+        end
+      end
+      return false
+    end,
+  })
+end
+
+function M.disable_conceal(bufnr)
+  M.conceal_buffers[bufnr] = nil
 end
 
 function M.trim(st)
