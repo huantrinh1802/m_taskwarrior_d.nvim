@@ -46,8 +46,55 @@ end
 
 function M.set_config(opts)
   M.ns_due_id = vim.api.nvim_create_namespace("due")
+  M.ns_conceal_id = vim.api.nvim_create_namespace("conceal")
   for k, v in pairs(opts) do
     M[k] = v
+  end
+end
+
+-- Find all non-overlapping positions of `pattern` in `line`.
+-- Returns a list of { start_col = 0-based, end_col = exclusive }.
+local function find_all_positions(line, pattern)
+  local positions = {}
+  local start_pos = 1
+  while start_pos <= #line do
+    local start_col, end_col = string.find(line, pattern, start_pos)
+    if not start_col then
+      break
+    end
+    table.insert(positions, { start_col = start_col - 1, end_col = end_col })
+    start_pos = end_col + 1
+  end
+  return positions
+end
+
+-- Render buffer-local conceal extmarks for $id{...} and $query{...}.
+-- This replaces window-local matchadd so conceal stays tied to the buffer.
+function M.render_conceal_marks(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+  vim.api.nvim_buf_clear_namespace(bufnr, M.ns_conceal_id, 0, -1)
+
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local conceal_marks = {
+    { pattern = M.id_part_pattern.lua, icon = "" },
+    { pattern = M.task_query_pattern and M.task_query_pattern.lua, icon = "󰡦" },
+  }
+
+  for line_idx, line_content in ipairs(lines) do
+    for _, mark in ipairs(conceal_marks) do
+      if mark.pattern then
+        for _, pos in ipairs(find_all_positions(line_content, mark.pattern)) do
+          vim.api.nvim_buf_set_extmark(bufnr, M.ns_conceal_id, line_idx - 1, pos.start_col, {
+            end_col = pos.end_col,
+            conceal = mark.icon,
+            hl_group = "Conceal",
+          })
+        end
+      end
+    end
   end
 end
 

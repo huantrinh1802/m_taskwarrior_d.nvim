@@ -2,7 +2,6 @@ local M = {}
 M.task = require("m_taskwarrior_d.task")
 M.utils = require("m_taskwarrior_d.utils")
 M.ui = require("m_taskwarrior_d.ui")
-M._concealTaskId = nil
 M.current_winid = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
@@ -671,34 +670,16 @@ function M.setup(opts)
     callback = function()
       -- Use a window-local conceal level so other windows are not affected.
       vim.opt_local.conceallevel = 2
-      -- Remove any previously added conceal matches for this window to avoid
-      -- duplicates when re-entering a Markdown buffer.
-      pcall(vim.fn.matchdelete, M._concealTaskId)
-      pcall(vim.fn.matchdelete, M._concealTaskQuery)
-      M._concealTaskId =
-        vim.fn.matchadd("Conceal", M._config.id_part_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "" })
-      M._concealTaskQuery =
-        vim.fn.matchadd("Conceal", M._config.task_query_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "󰡦" })
       vim.cmd([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]])
       vim.cmd([[hi DueDate ctermfg=109 guifg=#6495ED ctermbg=NONE guibg=NONE]])
       vim.cmd([[hi DueSoon ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]])
       vim.cmd([[hi DueOverdue ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]])
+      -- Buffer-local conceal extmarks replace window-local matchadd, so
+      -- conceal stays tied to the Markdown buffer and never duplicates.
+      M.utils.render_conceal_marks()
       if M._config.display_due_or_scheduled then
         M.utils.render_virtual_due_dates()
       end
-    end,
-  })
-
-  vim.api.nvim_create_autocmd({ "BufLeave" }, {
-    group = conceal_group,
-    pattern = M._config.file_patterns,
-    callback = function()
-      -- Reset only this plugin's highlight groups; do not touch the global
-      -- conceal level on buffer leave.
-      vim.cmd([[hi Conceal ctermfg=NONE guifg=NONE]])
-      vim.cmd([[hi DueDate ctermfg=NONE guifg=NONE]])
-      vim.cmd([[hi DueSoon ctermfg=NONE guifg=NONE]])
-      vim.cmd([[hi DueOverdue ctermfg=NONE guifg=NONE]])
     end,
   })
 
