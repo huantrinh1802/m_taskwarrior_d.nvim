@@ -112,6 +112,9 @@ This allows you to quickly capture tasks with context inline, while keeping your
   - Have not tested v3.0 but it may have a breaking change due to its move to SQLite as the main storage engine
 - [nui.nvim](https://github.com/MunifTanjim/nui.nvim)
   - For all UIs in the plugin
+- [yq](https://github.com/mikefarah/yq) (mikefarah/yq, the Go binary) (hard required for Frontmatter Task Notes)
+  - Only needed if you use `:TWSyncNote` / the frontmatter task-note workflow described below
+  - The Python `kislyuk/yq` wrapper is not supported (different flags/behavior)
 
 ## Work Well With
 
@@ -192,7 +195,16 @@ This allows you to quickly capture tasks with context inline, while keeping your
   comment_suffix = "",
   -- The file pattern to trigger the conceal
   file_patterns = { "*.md", "*.markdown" },
-  display_due_or_scheduled = true
+  display_due_or_scheduled = true,
+  -- Frontmatter task-note mode (see "Frontmatter Task Notes" below)
+  -- The frontmatter key that must be `true` for a file to be treated as a linked task note
+  frontmatter_indicator_key = "tw_task",
+  -- The frontmatter key that stores the Taskwarrior task's UUID
+  frontmatter_uuid_key = "uuid",
+  -- The frontmatter key used as the task description, falling back to the filename
+  frontmatter_title_key = "title",
+  -- The yq binary to shell out to for parsing frontmatter YAML
+  yq_bin = "yq"
   -- More configurations will be added in the future
 }
 ```
@@ -282,8 +294,10 @@ If you are using `markdown.nvim`, you can set the following configuration:
     ```
 
     - Any tasks under the header will be assigned to project A
+  - With a bang, `:TWSyncTasks!`, only checkbox lines that are already tracked (have a `$id{...}`) are synced; untracked checkbox lines are left alone instead of being auto-added as new Taskwarrior tasks. Works with `:TWSyncBulk!` too.
 - `:TWSyncCurrent`: similar to `TWSyncTasks` but only sync the current task. Work with normal and visual mode
 - `:TWSyncBulk`: similar to `TWSyncTasks` but only sync the selected tasks in visual mode
+- `:TWSyncNote`: sync the current buffer's frontmatter to a single Taskwarrior task (see "Frontmatter Task Notes" below), then sync any already-tracked checkbox tasks in the body (same as `:TWSyncTasks!`). No-op if the buffer isn't an opted-in task note.
 - `:TWUpdateCurrent`: quickly update the description of the task so you don't have to use the edit command
 - `:TWEditTask`: toggle a float window, which can edit the task.
   - Using the `task {id} edit` behind the scene
@@ -339,6 +353,34 @@ If you are using `markdown.nvim`, you can set the following configuration:
 ```markdown
 # Tasks that are in pending of project A $query{status:pending project:A}
 ```
+
+### Frontmatter Task Notes
+
+An alternative, additive workflow for one-file-per-task setups (Obsidian-style PKM/PM vaults): instead of a checkbox line, a whole Markdown file's YAML frontmatter maps to a single Taskwarrior task. Requires [`yq`](https://github.com/mikefarah/yq) to be installed (see Dependencies above).
+
+A file is only synced if its frontmatter has `tw_task: true` (configurable via `frontmatter_indicator_key`) — frontmatter on unrelated notes is never touched.
+
+```markdown
+---
+tw_task: true
+title: Write the quarterly report
+project: work.reports
+tags: [urgent, writing]
+priority: H
+---
+
+Notes go here — the body is never synced.
+```
+
+Run `:TWSyncNote` on the file:
+
+- If there's no `uuid:` key yet (or the one there doesn't match a real task), a new Taskwarrior task is created and a `uuid:` line is written back into the frontmatter in place, without reformatting the rest of it.
+- Every other scalar key becomes a `task <uuid> modify key:value` (e.g. `project:work.reports`, `priority:H`).
+- A `tags:` list becomes `+tag` per element. Other list-valued keys are skipped with a warning — no clean Taskwarrior equivalent.
+- `title` (configurable via `frontmatter_title_key`) is the task's description; if omitted, the filename (minus extension) is used instead. Unlike checkbox-line sync, frontmatter is authoritative here — the description is pushed on every sync, overwriting whatever Taskwarrior has.
+- Any checkbox lines in the body are synced too, but only if already tracked (`$id{...}`) — same as `:TWSyncTasks!`, an untracked checklist item in the body is left alone rather than becoming a new orphan task.
+
+Vault-wide/directory bulk sync isn't supported yet — `:TWSyncNote` operates on the current buffer.
 
 ## License
 
