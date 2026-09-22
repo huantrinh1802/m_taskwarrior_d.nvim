@@ -111,6 +111,39 @@ function M.check_if_task_is_blocked(uuid)
   return true
 end
 
+-- Split a list into chunks of at most `size` elements.
+function M.chunk_list(list, size)
+  local chunks = {}
+  for i = 1, #list, size do
+    local chunk = {}
+    for j = i, math.min(i + size - 1, #list) do
+      table.insert(chunk, list[j])
+    end
+    table.insert(chunks, chunk)
+  end
+  return chunks
+end
+
+-- Build Taskwarrior filter argv tokens that OR together a list of UUIDs,
+-- e.g. {"uuid:u1", "or", "uuid:u2"}.
+--
+-- These MUST be appended to the args table as separate elements (never
+-- table.concat'd into a single string): vim.system bypasses the shell, so a
+-- joined "u1 or u2" string is handed to Taskwarrior as one unparseable
+-- argument ("The expression could not be evaluated") instead of being split
+-- into filter atoms. Each UUID also needs the uuid: attribute prefix -
+-- bare UUIDs joined with a separate "or" token fail the same way.
+function M.uuid_or_filter(uuids)
+  local filter = {}
+  for i, uuid in ipairs(uuids) do
+    if i > 1 then
+      table.insert(filter, "or")
+    end
+    table.insert(filter, "uuid:" .. uuid)
+  end
+  return filter
+end
+
 -- Fetch many tasks with a single (or chunked) Taskwarrior export.
 -- `uuids` is a list of UUID strings. `callback(tasks)` receives the
 -- decoded array of task objects asynchronously via vim.system.
@@ -120,9 +153,9 @@ function M.get_tasks_bulk(uuids, callback)
     return
   end
 
-  local chunk_size = 100
+  local chunks = M.chunk_list(uuids, 100)
   local all_tasks = {}
-  local total_chunks = math.ceil(#uuids / chunk_size)
+  local total_chunks = #chunks
   local completed = 0
 
   local function on_chunk_done(tasks)
@@ -137,19 +170,27 @@ function M.get_tasks_bulk(uuids, callback)
     end
   end
 
-  for i = 1, #uuids, chunk_size do
-    local chunk = {}
-    for j = i, math.min(i + chunk_size - 1, #uuids) do
-      table.insert(chunk, uuids[j])
-    end
-    local args = { "task", table.concat(chunk, " or "), "export" }
+  for _, chunk in ipairs(chunks) do
+    local args = { "task" }
+    vim.list_extend(args, M.uuid_or_filter(chunk))
+    table.insert(args, "export")
     vim.system(args, { text = true }, function(obj)
       local tasks = {}
       if obj.code == 0 and obj.stdout and #obj.stdout > 0 then
-        local ok, decoded = pcall(vim.fn.json_decode, obj.stdout)
+        -- vim.system's callback runs in a fast-event context, where
+        -- vim.fn.* calls (like vim.fn.json_decode) are disallowed and throw
+        -- E5560. vim.json.decode is a plain Lua/C API and safe to call here.
+        local ok, decoded = pcall(vim.json.decode, obj.stdout)
         if ok and decoded then
           tasks = decoded
         end
+      else
+        vim.schedule(function()
+          vim.notify(
+            "m_taskwarrior_d: batched task export failed: " .. ((obj.stderr or "") ~= "" and obj.stderr or "unknown error"),
+            vim.log.levels.WARN
+          )
+        end)
       end
       on_chunk_done(tasks)
     end)
@@ -164,10 +205,9 @@ function M.get_tasks_bulk_sync(uuids)
     tasks = result
     done = true
   end)
-  -- Spin-yield until the async batch export completes.
-  while not done do
-    vim.wait(10)
-  end
+  -- Wait for the async batch export to complete, bounded so a hung/killed
+  -- `task` process can't block the editor forever.
+  vim.wait(5000, function() return done end, 10)
   return tasks
 end
 
