@@ -701,16 +701,20 @@ function M.apply_context_data(line, line_number)
 
   -- Batch the modifications: one Taskwarrior process per chunk of UUIDs
   -- instead of one process per task.
-  local chunk_size = 50
   local task_mod = require("m_taskwarrior_d.task")
-  for i = 1, #tasks, chunk_size do
-    local chunk = {}
-    for j = i, math.min(i + chunk_size - 1, #tasks) do
-      table.insert(chunk, tasks[j])
-    end
-    local args = { "task", table.concat(chunk, " or "), "mod" }
+  for _, chunk in ipairs(task_mod.chunk_list(tasks, 50)) do
+    -- rc.bulk=0 disables Taskwarrior's per-task "Modify task N ... ?"
+    -- confirmation prompt, which otherwise triggers whenever a single
+    -- command touches more than 2 tasks (the default `bulk` threshold) and
+    -- has no stdin to answer from here.
+    local args = { "task", "rc.bulk=0" }
+    vim.list_extend(args, task_mod.uuid_or_filter(chunk))
+    table.insert(args, "mod")
     task_mod.append_tokens(args, query)
-    task_mod.execute_task_args(args)
+    local code, output = task_mod.execute_task_args(args)
+    if code ~= 0 then
+      vim.notify("m_taskwarrior_d: failed to apply context modifications: " .. output, vim.log.levels.WARN)
+    end
   end
 end
 

@@ -50,12 +50,7 @@ function M.sync_tasks(start_position, end_position)
   -- Batch export all known UUIDs in one (or chunked) Taskwarrior call.
   local task_cache = {}
   if #uuids > 0 then
-    local tasks = M.task.get_tasks_bulk_sync(uuids)
-    for _, task in ipairs(tasks) do
-      if task and task.uuid then
-        task_cache[task.uuid] = task
-      end
-    end
+    task_cache = M.utils.build_lookup(M.task.get_tasks_bulk_sync(uuids))
   end
 
   -- Second pass: sync tasks using the cached export data. Re-read each line
