@@ -415,12 +415,16 @@ function M.toggle_task_status(current_line, line_number, new_status)
   return new_status
 end
 
-function M.add_or_sync_task(line, replace_desc, task_cache)
+function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
   local list_sb, _, status = string.match(line, M.checkbox_pattern.lua)
   local desc = string.gsub(line, M.checkbox_pattern.lua, "")
   local result
   local _, _, uuid = string.match(line, M.id_part_pattern.lua)
   if uuid == nil then
+    if sync_only_tracked then
+      -- Never auto-create a task for an untracked line in this mode.
+      return line, nil
+    end
     uuid = require("m_taskwarrior_d.task").add_task(desc)
     result = line:gsub("%s+$", "")
       .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
@@ -508,7 +512,7 @@ end
 -- `synced` (optional) is a set of line numbers already passed through
 -- add_or_sync_task in this sync run; those lines are only read for their
 -- uuid, and every line this call syncs is added to it.
-function M.check_dependencies(line_number, task_cache, synced)
+function M.check_dependencies(line_number, task_cache, synced, sync_only_tracked)
   local current_line, _ = M.get_line(line_number)
   if current_line == nil then
     return nil
@@ -536,13 +540,16 @@ function M.check_dependencies(line_number, task_cache, synced)
       _, uuid = M.extract_uuid(next_line)
     else
       local result
-      result, uuid = M.add_or_sync_task(next_line, false, task_cache)
+      result, uuid = M.add_or_sync_task(next_line, false, task_cache, sync_only_tracked)
       vim.api.nvim_buf_set_lines(0, next_line_number - 1, next_line_number, false, { result })
       if synced then
         synced[next_line_number] = true
       end
     end
-    table.insert(deps, uuid)
+    -- nil when sync_only_tracked skipped an untracked child line
+    if uuid then
+      table.insert(deps, uuid)
+    end
     count = count + 1
     next_line = M.get_line(line_number + count)
     if next_line ~= nil then
@@ -553,11 +560,11 @@ function M.check_dependencies(line_number, task_cache, synced)
   return current_uuid, deps
 end
 
-function M.sync_task(current_line, line_number, task_cache, synced)
+function M.sync_task(current_line, line_number, task_cache, synced, sync_only_tracked)
   -- A nested line was already synced by its parent's check_dependencies;
   -- it still needs its own check_dependencies for its children.
   if not (synced and synced[line_number]) then
-    local result, _ = M.add_or_sync_task(current_line, false, task_cache)
+    local result, _ = M.add_or_sync_task(current_line, false, task_cache, sync_only_tracked)
     if result then
       vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
     end
@@ -565,7 +572,7 @@ function M.sync_task(current_line, line_number, task_cache, synced)
       synced[line_number] = true
     end
   end
-  local current_uuid, deps = M.check_dependencies(line_number, task_cache, synced)
+  local current_uuid, deps = M.check_dependencies(line_number, task_cache, synced, sync_only_tracked)
   if current_uuid ~= nil then
     require("m_taskwarrior_d.task").add_task_deps(current_uuid, deps)
   end

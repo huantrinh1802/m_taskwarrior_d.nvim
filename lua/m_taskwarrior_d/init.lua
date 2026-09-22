@@ -2,6 +2,7 @@ local M = {}
 M.task = require("m_taskwarrior_d.task")
 M.utils = require("m_taskwarrior_d.utils")
 M.ui = require("m_taskwarrior_d.ui")
+M.frontmatter = require("m_taskwarrior_d.frontmatter")
 M.current_winid = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
@@ -19,9 +20,14 @@ M._config = {
   comment_suffix = "",
   file_patterns = { "*.md", "*.markdown" },
   display_due_or_scheduled = true,
+  -- Frontmatter task-note mode: one Markdown file = one Taskwarrior task.
+  frontmatter_indicator_key = "tw_task",
+  frontmatter_uuid_key = "uuid",
+  frontmatter_title_key = "title",
+  yq_bin = "yq",
 }
 
-function M.sync_tasks(start_position, end_position)
+function M.sync_tasks(start_position, end_position, sync_only_tracked)
   if start_position == nil then
     start_position = 1
   end
@@ -62,11 +68,27 @@ function M.sync_tasks(start_position, end_position)
   local synced = {}
   for _, item in ipairs(task_lines) do
     local current_line, _ = M.utils.get_line(item.line_number)
-    M.utils.sync_task(current_line, item.line_number, task_cache, synced)
+    M.utils.sync_task(current_line, item.line_number, task_cache, synced, sync_only_tracked)
   end
 
   for _, header in pairs(headers) do
     M.utils.apply_context_data(header.line, header.line_number)
+  end
+end
+
+-- Sync the current buffer's frontmatter block (if it opts in via
+-- frontmatter_indicator_key) to a single Taskwarrior task, then sync any
+-- already-tracked checkbox tasks in the body (never auto-creating untracked
+-- ones, so an ordinary checklist in the note doesn't become orphan tasks).
+function M.sync_note()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local uuid = M.frontmatter.sync_note(bufnr)
+  if uuid == nil then
+    return
+  end
+  M.sync_tasks(1, vim.api.nvim_buf_line_count(bufnr), true)
+  if M._config.display_due_or_scheduled then
+    M.utils.render_virtual_due_dates()
   end
 end
 
@@ -675,6 +697,7 @@ function M.setup(opts)
   M.utils.set_config(M._config)
   M.task.set_config(M._config)
   M.ui.set_config(M._config)
+  M.frontmatter.set_config(M._config)
   local conceal_group = vim.api.nvim_create_augroup("TWConceal", { clear = true })
   set_default_highlights()
   -- `:colorscheme` runs `:hi clear`, which drops the plugin's groups.
@@ -716,20 +739,26 @@ function M.setup(opts)
     end
   end, {})
   -- Should rename to TWSyncAll
-  vim.api.nvim_create_user_command("TWSyncTasks", function()
-    M.sync_tasks()
+  -- With a bang (:TWSyncTasks!), only already-tracked ($id{...}) checkbox
+  -- lines are synced; untracked lines are left alone instead of being
+  -- auto-added as new Taskwarrior tasks.
+  vim.api.nvim_create_user_command("TWSyncTasks", function(args)
+    M.sync_tasks(nil, nil, args.bang)
     if M._config.display_due_or_scheduled then
       M.utils.render_virtual_due_dates()
     end
-  end, {})
-  vim.api.nvim_create_user_command("TWSyncBulk", function()
+  end, { bang = true })
+  vim.api.nvim_create_user_command("TWSyncBulk", function(args)
     local start_line = vim.fn.line("'<") -- Get the start line of the selection
     local end_line = vim.fn.line("'>") -- Get the end line of the selection
-    M.sync_tasks(start_line, end_line)
+    M.sync_tasks(start_line, end_line, args.bang)
     if M._config.display_due_or_scheduled then
       M.utils.render_virtual_due_dates(start_line, end_line)
     end
-  end, { range = true })
+  end, { range = true, bang = true })
+  vim.api.nvim_create_user_command("TWSyncNote", function()
+    M.sync_note()
+  end, {})
   vim.api.nvim_create_user_command("TWUpdateCurrent", function()
     M.update_current_task()
     local _, line_number = M.utils.get_line()

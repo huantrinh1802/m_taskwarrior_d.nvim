@@ -78,6 +78,23 @@ function M.modify_task(task_id, desc)
   M.execute_task_args(args, false)
 end
 
+-- Apply already-formed "key:value" (or "+tag"/"-tag") modification strings to
+-- a task. Unlike modify_task/append_tokens, each entry in `kv_pairs` is
+-- pushed as a single argv element without whitespace-tokenizing it, so
+-- values containing spaces (e.g. "project:Personal Project") are not
+-- corrupted. Safe because execute_task_args uses vim.system(args) and
+-- bypasses the shell entirely.
+function M.modify_task_attrs(uuid, kv_pairs)
+  if not kv_pairs or #kv_pairs == 0 then
+    return
+  end
+  local args = { "task", uuid, "modify" }
+  for _, kv in ipairs(kv_pairs) do
+    table.insert(args, kv)
+  end
+  M.execute_task_args(args, false)
+end
+
 --Function to modify task's status completed, (pending), deleted, started, canceled
 function M.modify_task_status(task_id, new_status)
   if M.status_map[new_status] == "active" then
