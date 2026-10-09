@@ -2,7 +2,6 @@ local M = {}
 M.task = require("m_taskwarrior_d.task")
 M.utils = require("m_taskwarrior_d.utils")
 M.ui = require("m_taskwarrior_d.ui")
-M._concealTaskId = nil
 M.current_winid = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
@@ -30,16 +29,39 @@ function M.sync_tasks(start_position, end_position)
     end_position = vim.api.nvim_buf_line_count(0)
   end
   local headers = {}
-  -- Iterate through each line to get the number of leading spaces
+  local uuids = {}
+  local task_lines = {}
+
+  -- First pass: collect task lines and UUIDs to batch Taskwarrior lookups.
   for line_number = start_position, end_position do
     local current_line, _ = M.utils.get_line(line_number)
     if string.match(current_line, M._config.checkbox_pattern.lua) then
-      M.utils.sync_task(current_line, line_number)
+      table.insert(task_lines, { line_number = line_number })
+      local _, uuid = M.utils.extract_uuid(current_line)
+      if uuid then
+        table.insert(uuids, uuid)
+      end
     end
     if string.match(current_line, M._config.task_query_pattern.lua) then
       table.insert(headers, { line = current_line, line_number = line_number })
     end
   end
+
+  -- Batch export all known UUIDs in one (or chunked) Taskwarrior call.
+  local task_cache = {}
+  if #uuids > 0 then
+    task_cache = M.utils.build_lookup(M.task.get_tasks_bulk_sync(uuids))
+  end
+
+  -- Second pass: sync tasks using the cached export data. Re-read each line
+  -- rather than using the first-pass copy: syncing a parent runs
+  -- check_dependencies, which writes $id{...} onto its child lines, and a
+  -- stale copy without that id would `task add` the child a second time.
+  for _, item in ipairs(task_lines) do
+    local current_line, _ = M.utils.get_line(item.line_number)
+    M.utils.sync_task(current_line, item.line_number, task_cache)
+  end
+
   for _, header in pairs(headers) do
     M.utils.apply_context_data(header.line, header.line_number)
   end
@@ -645,30 +667,26 @@ function M.setup(opts)
     group = conceal_group,
     pattern = M._config.file_patterns,
     callback = function()
-      -- Get the file type of the current buffer
-      vim.opt.conceallevel = 2
-      M._concealTaskId =
-        vim.fn.matchadd("Conceal", M._config.id_part_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "" })
-      M._concealTaskQuery =
-        vim.fn.matchadd("Conceal", M._config.task_query_pattern.vim:gsub("[(%(%)]", ""), 0, -1, { conceal = "󰡦" })
+      -- Use a window-local conceal level so other windows are not affected.
+      vim.opt_local.conceallevel = 2
       vim.cmd([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]])
       vim.cmd([[hi DueDate ctermfg=109 guifg=#6495ED ctermbg=NONE guibg=NONE]])
       vim.cmd([[hi DueSoon ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]])
+      vim.cmd([[hi DueOverdue ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]])
+      -- Conceal comes from a decoration provider rather than window-local
+      -- matchadd, so it follows the buffer contents and never duplicates.
+      M.utils.enable_conceal()
       if M._config.display_due_or_scheduled then
         M.utils.render_virtual_due_dates()
       end
     end,
   })
-
-  vim.api.nvim_create_autocmd({ "BufLeave" }, {
+  vim.api.nvim_create_autocmd({ "BufWipeout" }, {
     group = conceal_group,
     pattern = M._config.file_patterns,
-    callback = function()
-      -- Get the file type of the current buffer
-      vim.opt.conceallevel = 2
-      vim.cmd([[hi Conceal ctermfg=NONE guifg=NONE]])
-      vim.cmd([[hi DueDate ctermfg=NONE guifg=NONE]])
-      vim.cmd([[hi DueSoon ctermfg=NONE guifg=NONE]])
+    callback = function(args)
+      M.utils.disable_conceal(args.buf)
+      M.utils.forget_due_dates(args.buf)
     end,
   })
 
