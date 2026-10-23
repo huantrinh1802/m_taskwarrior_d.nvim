@@ -98,6 +98,8 @@ function M.get_blocked_tasks_by(uuid)
   return status, result
 end
 
+-- Returns tasks in Taskwarrior's export order, not the order of `uuids`;
+-- UUIDs with no matching task are left out.
 function M.get_tasks_by(uuids)
   local tasks = M.get_tasks_bulk_sync(uuids)
   return true, tasks
