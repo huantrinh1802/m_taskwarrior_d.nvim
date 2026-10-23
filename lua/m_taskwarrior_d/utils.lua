@@ -114,7 +114,7 @@ function M.enable_conceal(bufnr)
           vim.api.nvim_buf_set_extmark(buf, M.ns_conceal_id, toprow + i - 1, pos.start_col, {
             end_col = pos.end_col,
             conceal = pos.icon,
-            hl_group = "Conceal",
+            hl_group = "TWConceal",
             ephemeral = true,
           })
         end
@@ -816,16 +816,16 @@ local function calculate_time_diff(task_data)
   local display_text
   if days > 0 then
     display_text = string.format("%d days, %d hours left", days, hours)
-    highlight_group = "DueDate"
+    highlight_group = "TWDueDate"
   elseif days >= 0 and hours >= 0 and minutes >= 0 then -- Due soon or within the next hour
     display_text = string.format("%d hours, %d minutes left", hours, minutes)
-    highlight_group = "DueSoon"
+    highlight_group = "TWDueSoon"
   else -- Overdue (time_diff is negative)
     local abs_diff = -time_diff
     local days_ago = math.floor(abs_diff / (24 * 3600))
     local hours_ago = math.floor((abs_diff % (24 * 3600)) / 3600)
     display_text = string.format("OVERDUE: %d days, %d hours ago", days_ago, hours_ago)
-    highlight_group = "DueOverdue" -- Assuming you define this highlight group
+    highlight_group = "TWDueOverdue"
   end
   return { time_text .. display_text, highlight_group }
 end
