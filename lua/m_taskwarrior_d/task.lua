@@ -207,7 +207,12 @@ function M.get_tasks_bulk_sync(uuids)
   end)
   -- Wait for the async batch export to complete, bounded so a hung/killed
   -- `task` process can't block the editor forever.
-  vim.wait(5000, function() return done end, 10)
+  if not vim.wait(5000, function() return done end, 10) then
+    vim.notify(
+      "m_taskwarrior_d: batched task export timed out; falling back to per-task lookups",
+      vim.log.levels.WARN
+    )
+  end
   return tasks
 end
 
