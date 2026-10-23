@@ -751,7 +751,10 @@ function M.parse_ISO8601_date(iso_date)
   local pattern = "(%d%d%d%d)(%d%d)(%d%d)T(%d%d)(%d%d)(%d%d)Z"
   local year, month, day, hour, min, sec = iso_date:match(pattern)
 
-  return os.time({
+  -- Taskwarrior dates are UTC, but os.time reads its table as local time.
+  -- Shift by the local UTC offset at that moment (not now, so DST is right).
+  -- The isdst flag is dropped so mktime works it out for both conversions.
+  local as_local = os.time({
     year = tonumber(year),
     month = tonumber(month),
     day = tonumber(day),
@@ -759,6 +762,9 @@ function M.parse_ISO8601_date(iso_date)
     min = tonumber(min),
     sec = tonumber(sec),
   })
+  local utc_fields = os.date("!*t", as_local)
+  utc_fields.isdst = nil
+  return as_local + os.difftime(as_local, os.time(utc_fields))
 end
 
 local function calculate_time_diff(task_data)

@@ -205,6 +205,15 @@ check("lines inserted above during the export shift the mark with the task", fun
   assert(#due_marks(2) == 1, "expected the due mark on the task's new row 2")
 end)
 
+check("parse_ISO8601_date reads Taskwarrior's UTC timestamps as UTC", function()
+  local now = os.time()
+  local parsed = utils.parse_ISO8601_date(os.date("!%Y%m%dT%H%M%SZ", now))
+  assert(parsed == now, string.format("expected %d, got %d (off by %ds)", now, parsed, parsed - now))
+  -- 2026-01-15T12:00:00Z and 2026-07-15T12:00:00Z, either side of DST.
+  assert(utils.parse_ISO8601_date("20260115T120000Z") == 1768478400, "January date off")
+  assert(utils.parse_ISO8601_date("20260715T120000Z") == 1784116800, "July date off")
+end)
+
 print("== conceal ==")
 
 check("an $id added by sync_tasks is concealed without re-entering the buffer", function()
