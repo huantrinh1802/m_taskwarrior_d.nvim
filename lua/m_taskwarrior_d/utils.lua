@@ -505,7 +505,10 @@ function M.extract_uuid(line)
   return conceal, uuid
 end
 
-function M.check_dependencies(line_number, task_cache)
+-- `synced` (optional) is a set of line numbers already passed through
+-- add_or_sync_task in this sync run; those lines are only read for their
+-- uuid, and every line this call syncs is added to it.
+function M.check_dependencies(line_number, task_cache, synced)
   local current_line, _ = M.get_line(line_number)
   if current_line == nil then
     return nil
@@ -527,8 +530,18 @@ function M.check_dependencies(line_number, task_cache)
     return nil, nil
   end
   while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
-    local result, uuid = M.add_or_sync_task(next_line, false, task_cache)
-    vim.api.nvim_buf_set_lines(0, line_number + count - 1, line_number + count, false, { result })
+    local next_line_number = line_number + count
+    local uuid
+    if synced and synced[next_line_number] then
+      _, uuid = M.extract_uuid(next_line)
+    else
+      local result
+      result, uuid = M.add_or_sync_task(next_line, false, task_cache)
+      vim.api.nvim_buf_set_lines(0, next_line_number - 1, next_line_number, false, { result })
+      if synced then
+        synced[next_line_number] = true
+      end
+    end
     table.insert(deps, uuid)
     count = count + 1
     next_line = M.get_line(line_number + count)
@@ -540,12 +553,19 @@ function M.check_dependencies(line_number, task_cache)
   return current_uuid, deps
 end
 
-function M.sync_task(current_line, line_number, task_cache)
-  local result, _ = M.add_or_sync_task(current_line, false, task_cache)
-  if result then
-    vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
+function M.sync_task(current_line, line_number, task_cache, synced)
+  -- A nested line was already synced by its parent's check_dependencies;
+  -- it still needs its own check_dependencies for its children.
+  if not (synced and synced[line_number]) then
+    local result, _ = M.add_or_sync_task(current_line, false, task_cache)
+    if result then
+      vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
+    end
+    if synced then
+      synced[line_number] = true
+    end
   end
-  local current_uuid, deps = M.check_dependencies(line_number, task_cache)
+  local current_uuid, deps = M.check_dependencies(line_number, task_cache, synced)
   if current_uuid ~= nil then
     require("m_taskwarrior_d.task").add_task_deps(current_uuid, deps)
   end

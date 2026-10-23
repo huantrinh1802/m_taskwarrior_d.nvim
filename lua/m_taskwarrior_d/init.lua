@@ -57,9 +57,12 @@ function M.sync_tasks(start_position, end_position)
   -- rather than using the first-pass copy: syncing a parent runs
   -- check_dependencies, which writes $id{...} onto its child lines, and a
   -- stale copy without that id would `task add` the child a second time.
+  -- `synced` makes each line go through add_or_sync_task once, even though a
+  -- nested line is reached both from its parent and from this loop.
+  local synced = {}
   for _, item in ipairs(task_lines) do
     local current_line, _ = M.utils.get_line(item.line_number)
-    M.utils.sync_task(current_line, item.line_number, task_cache)
+    M.utils.sync_task(current_line, item.line_number, task_cache, synced)
   end
 
   for _, header in pairs(headers) do
