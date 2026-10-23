@@ -22,9 +22,12 @@ function M.check()
       return vim.system({ "task", "--version" }, { text = true }):wait(5000)
     end)
     local version = ok and obj.code == 0 and vim.trim(obj.stdout or "") or nil
+    local major = version and tonumber(version:match("^(%d+)"))
     if not version or version == "" then
       health.error("`task --version` failed: " .. (ok and vim.trim(obj.stderr or "") or tostring(obj)))
-    elseif tonumber(version:match("^(%d+)")) >= 3 then
+    elseif not major then
+      health.warn("Could not parse Taskwarrior version from `task --version`: " .. version)
+    elseif major >= 3 then
       health.warn("Taskwarrior " .. version .. " found; the plugin is developed against Taskwarrior 2.x")
     else
       health.ok("Taskwarrior " .. version)
