@@ -167,6 +167,34 @@ check("syncing an existing parent with a new child adds only the child", functio
   assert(vim.tbl_contains(deps, child_uuid), "parent should depend on the new child, got " .. vim.inspect(deps))
 end)
 
+check("sync_tasks syncs each line of a 3-level list exactly once", function()
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "- [ ] once grandparent",
+    "  - [ ] once parent",
+    "    - [ ] once child",
+  })
+  local calls = {}
+  local real_add_or_sync = utils.add_or_sync_task
+  utils.add_or_sync_task = function(line, ...)
+    local key = line:match("once %a+")
+    calls[key] = (calls[key] or 0) + 1
+    return real_add_or_sync(line, ...)
+  end
+  local ok, err = pcall(plugin.sync_tasks)
+  utils.add_or_sync_task = real_add_or_sync
+  assert(ok, err)
+  for _, key in ipairs({ "once grandparent", "once parent", "once child" }) do
+    assert(calls[key] == 1, key .. " synced " .. tostring(calls[key]) .. " times: " .. vim.inspect(calls))
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local _, parent_uuid = utils.extract_uuid(lines[2])
+  local _, child_uuid = utils.extract_uuid(lines[3])
+  local deps = deps_of(export("uuid:" .. parent_uuid)[1])
+  assert(#deps == 1 and deps[1] == child_uuid, "parent should depend on the child, got " .. vim.inspect(deps))
+  assert(#export("description:once") == 3, "expected 3 tasks")
+end)
+
 print("== render_virtual_due_dates ==")
 
 local due_uuid = task.add_task("due render task due:tomorrow")
