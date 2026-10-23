@@ -9,8 +9,8 @@ Neovim plugin that integrates Taskwarrior with Markdown documents. Allows users 
 - Avoid reinventing Taskwarrior's task management logic
 - Support task context (projects, tags, dependencies) and query views
 
-## Current Problem Statement
-User reports that **all processes are slow**, especially rendering virtual text for due/scheduled dates. The primary cause is excessive synchronous calls to the `task` CLI (one process per task/UUID) during buffer operations like sync, query, and due-date rendering.
+## Original Problem Statement
+The user reported that **all processes were slow**, especially rendering virtual text for due/scheduled dates. The cause was one synchronous `task` process per task/UUID during sync, query and due-date rendering. The current branch addresses this by batching.
 
 ## Scope
 - Optimize performance by batching Taskwarrior CLI calls
