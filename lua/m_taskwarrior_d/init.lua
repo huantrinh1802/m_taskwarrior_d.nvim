@@ -659,6 +659,16 @@ local function create_save_file_if_not_exist()
   end
 end
 
+-- Plugin-owned highlight groups. `default = true` leaves any definition the
+-- user or their colorscheme already made, and nothing touches the global
+-- Conceal group other buffers use.
+local function set_default_highlights()
+  vim.api.nvim_set_hl(0, "TWConceal", { default = true, fg = "#83a598", ctermfg = 109 })
+  vim.api.nvim_set_hl(0, "TWDueDate", { default = true, fg = "#6495ED", ctermfg = 68 })
+  vim.api.nvim_set_hl(0, "TWDueSoon", { default = true, fg = "#FE8019", ctermfg = 208 })
+  vim.api.nvim_set_hl(0, "TWDueOverdue", { default = true, fg = "#FF0000", ctermfg = 196 })
+end
+
 function M.setup(opts)
   create_save_file_if_not_exist()
   process_opts(opts)
@@ -666,16 +676,18 @@ function M.setup(opts)
   M.task.set_config(M._config)
   M.ui.set_config(M._config)
   local conceal_group = vim.api.nvim_create_augroup("TWConceal", { clear = true })
+  set_default_highlights()
+  -- `:colorscheme` runs `:hi clear`, which drops the plugin's groups.
+  vim.api.nvim_create_autocmd({ "ColorScheme" }, {
+    group = conceal_group,
+    callback = set_default_highlights,
+  })
   vim.api.nvim_create_autocmd({ "BufEnter" }, {
     group = conceal_group,
     pattern = M._config.file_patterns,
     callback = function()
       -- Use a window-local conceal level so other windows are not affected.
       vim.opt_local.conceallevel = 2
-      vim.cmd([[hi Conceal ctermfg=109 guifg=#83a598 ctermbg=NONE guibg=NONE]])
-      vim.cmd([[hi DueDate ctermfg=109 guifg=#6495ED ctermbg=NONE guibg=NONE]])
-      vim.cmd([[hi DueSoon ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]])
-      vim.cmd([[hi DueOverdue ctermfg=109 guifg=#FF0000 ctermbg=NONE guibg=NONE]])
       -- Conceal comes from a decoration provider rather than window-local
       -- matchadd, so it follows the buffer contents and never duplicates.
       M.utils.enable_conceal()
