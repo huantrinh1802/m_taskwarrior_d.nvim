@@ -849,6 +849,11 @@ function M.render_virtual_due_dates(start_line, end_line)
   due_state[bufnr] = state
   state.gen = state.gen + 1
   local gen = state.gen
+  -- A whole-buffer render supersedes every earlier claim, so start fresh
+  -- rather than letting claims for long-gone uuids pile up.
+  if start_line == 0 and end_line == -1 then
+    state.claims = {}
+  end
 
   -- 2. Collect all UUIDs in the range (non-blocking)
   local lines = vim.api.nvim_buf_get_lines(bufnr, start_line, end_line, false)
