@@ -12,10 +12,11 @@ Taskwarrior is a powerful CLI task manager, but working with it alongside Markdo
 ## Key Features
 - Detect `- [ ]` / `- [x]` style checkboxes and register them in Taskwarrior
 - Inline Taskwarrior attribute parsing (`project:X`, `+tag`, `due:friday`, etc.)
-- Virtual text rendering for due/scheduled dates (`TWShowDueOrScheduled`)
+- Virtual text rendering for due/scheduled dates (`TWShowDueOrScheduled`), highlighted with `TWDueDate`/`TWDueSoon`/`TWDueOverdue`
 - Query view to render Taskwarrior reports inside Markdown (`TWQueryTasks`, `TWBufQueryTasks`)
 - Dependency tracking via nested checkboxes
 - Edit/view tasks via floating windows using `nui.nvim`
+- `:checkhealth m_taskwarrior_d`
 
-## Pain Point
-Performance degrades as the number of tasks in a buffer grows. The plugin currently spawns one `task` process per UUID for sync, due-date rendering, and query operations, causing noticeable lag on buffer enter/save.
+## Pain Point (being addressed)
+Performance degraded with task count because the plugin spawned one `task` process per UUID. Sync, due rendering and context mods are now batched.
