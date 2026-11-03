@@ -260,21 +260,52 @@ function H.close_floats()
   end
 end
 
+-- Content windows of open popups. A nui popup with a border is two floats;
+-- the border one is not focusable and is left out.
 function H.float_wins()
   return vim.tbl_filter(function(win)
-    return vim.api.nvim_win_get_config(win).relative ~= ""
+    local config = vim.api.nvim_win_get_config(win)
+    return config.relative ~= "" and config.focusable ~= false
   end, vim.api.nvim_list_wins())
 end
 
+-- Lines of the current window if it is a popup, else of the newest popup.
 function H.float_lines()
   local wins = H.float_wins()
   assert(#wins > 0, "no floating window open")
-  return vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(wins[#wins]), 0, -1, false)
+  local win = vim.tbl_contains(wins, vim.api.nvim_get_current_win()) and vim.api.nvim_get_current_win()
+    or wins[#wins]
+  return vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), 0, -1, false)
 end
 
 -- Press keys as if typed (remapped, so buffer-local maps run).
 function H.feed(keys)
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(keys, true, false, true), "mx", false)
+end
+
+-- Replace nui.input with a fake that records what the plugin mounts:
+-- headless, a nui Input mounted from a :command callback does not take
+-- focus, so typed keys never reach it. H.inputs holds each mounted input's
+-- popup options and input options (prompt, on_submit, ...).
+H.inputs = {}
+function H.fake_nui_input()
+  package.loaded["nui.input"] = setmetatable({}, {
+    __call = function(_, popup_options, options)
+      return {
+        mount = function()
+          table.insert(H.inputs, { popup = popup_options, options = options })
+        end,
+      }
+    end,
+  })
+end
+
+-- Submit `text` to the most recently mounted (fake) input.
+function H.submit_input(text)
+  local input = H.inputs[#H.inputs]
+  assert(input, "no input was mounted")
+  table.remove(H.inputs)
+  input.options.on_submit(text)
 end
 
 return H
