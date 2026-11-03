@@ -43,6 +43,7 @@ jobs:
       - name: Build Taskwarrior
         if: steps.taskwarrior-cache.outputs.cache-hit != 'true'
         run: |
+          sudo apt-get update && sudo apt-get install -y uuid-dev
           curl -fsSL "https://github.com/GothenburgBitFactory/taskwarrior/releases/download/v${TASKWARRIOR_VERSION}/task-${TASKWARRIOR_VERSION}.tar.gz" | tar xz
           cmake -S "task-${TASKWARRIOR_VERSION}" -B tw-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/.local/taskwarrior"
           cmake --build tw-build -j "$(nproc)"
