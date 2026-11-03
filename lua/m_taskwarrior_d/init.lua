@@ -296,7 +296,7 @@ function M.run_task(args)
       M.task.append_tokens(task_args, a)
     end
     local _, result = M.task.execute_task_args(task_args, true)
-    if #result == 0 then
+    if vim.trim(result) == "" then
       print("No task found")
       return
     end
