@@ -160,7 +160,9 @@ function M.update_current_task(start_line, end_line)
   end
 end
 
-local function find_next_index(item, inserted_list, table)
+-- Row at which a task_view_fields_order field goes, after the rows of the
+-- fields ordered before it; nil for any other field.
+local function find_next_index(item, inserted_list)
   if inserted_list[item] == nil then
     return nil
   end
@@ -173,7 +175,6 @@ local function find_next_index(item, inserted_list, table)
       return loc
     end
   end
-  return nil
 end
 
 function M.view_task()
@@ -190,43 +191,36 @@ function M.view_task()
   for _, v in ipairs(M._config.task_view_fields_order) do
     inserted[v] = false
   end
+  local head_width = M._config.view_task_config.head_width
+  local total_width = M._config.view_task_config.total_width
+  local blank_head = string.rep(" ", head_width)
+  local separator = string.rep("-", head_width + 1) .. "|--" .. string.rep("-", total_width - head_width)
   for k, v in pairs(task_info) do
-    local loc = find_next_index(k, inserted, md_table) or #md_table + 1
+    local loc = find_next_index(k, inserted) or #md_table + 1
     local number_of_lines = 0
     if type(v) == "table" then
+      -- List fields (tags, annotations, depends): one "- item" row each,
+      -- with long items wrapped onto a second row.
+      local width = total_width - head_width - 5
       for i, j in ipairs(v) do
         if i ~= 1 then
           loc = loc + 1
         end
-        local row
         if type(j) == "table" then
           j = j.description
         end
-        local head = ""
-        if i == 1 then
-          head = k .. string.rep(" ", M._config.view_task_config.head_width - #k)
-        else
-          head = string.rep(" ", M._config.view_task_config.head_width)
-        end
-        if #j > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 5 then
-          row = head
-            .. " | - "
-            .. j:sub(1, M._config.view_task_config.total_width - M._config.view_task_config.head_width - 5)
-          row = row:gsub("$%s+", "")
+        local head = i == 1 and k .. string.rep(" ", head_width - #k) or blank_head
+        local row
+        if #j > width then
+          row = (head .. " | - " .. j:sub(1, width)):gsub("$%s+", "")
           table.insert(md_table, loc, row)
           loc = loc + 1
           number_of_lines = number_of_lines + 1
-          head = string.rep(" ", M._config.view_task_config.head_width)
-          row = nil
-          row = head
-            .. " |"
-            .. j:sub(M._config.view_task_config.total_width - M._config.view_task_config.head_width - 4)
+          row = blank_head .. " |" .. j:sub(width + 1)
         else
           row = head .. " | - " .. j
         end
-        if row ~= nil then
-          table.insert(md_table, loc, row)
-        end
+        table.insert(md_table, loc, row)
         number_of_lines = number_of_lines + 1
       end
     else
@@ -234,21 +228,15 @@ function M.view_task()
         local local_time = M.utils.convert_timestamp_utc_local(v)
         v = os.date("%Y-%m-%d %H:%M", os.time(local_time))
       end
-      local row = nil
-      local head = k .. string.rep(" ", M._config.view_task_config.head_width - #k)
-      if
-        type(v) == "string"
-        and #v > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3
-      then
-        row = head
-          .. " | "
-          .. v:sub(1, M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3)
-        row = row:gsub("$%s+", "")
+      local width = total_width - head_width - 3
+      local head = k .. string.rep(" ", head_width - #k)
+      local row
+      if type(v) == "string" and #v > width then
+        row = (head .. " | " .. v:sub(1, width)):gsub("$%s+", "")
         table.insert(md_table, loc, row)
         loc = loc + 1
         number_of_lines = number_of_lines + 1
-        head = string.rep(" ", M._config.view_task_config.head_width)
-        row = head .. " |" .. v:sub(M._config.view_task_config.total_width - M._config.view_task_config.head_width - 2)
+        row = blank_head .. " |" .. v:sub(width + 1)
       else
         row = head .. " | " .. v
       end
@@ -256,13 +244,7 @@ function M.view_task()
       number_of_lines = number_of_lines + 1
       inserted[k] = number_of_lines + 1
     end
-    table.insert(
-      md_table,
-      loc + 1,
-      string.rep("-", M._config.view_task_config.head_width + 1)
-        .. "|--"
-        .. string.rep("-", M._config.view_task_config.total_width - M._config.view_task_config.head_width)
-    )
+    table.insert(md_table, loc + 1, separator)
   end
   local popup = M.ui.trigger_hover(md_table, "Task " .. uuid)
   vim.api.nvim_buf_set_option(popup.bufnr, "filetype", "markdown")
@@ -623,53 +605,37 @@ local function process_opts(opts)
     end
   end
   local status_pattern = M.utils.encode_patterns(table.concat(M._config.task_statuses, ""))
-  local comment_prefix_encoded = M.utils.encode_patterns(M._config.comment_prefix)
-  local comment_suffix_encoded = M.utils.encode_patterns(M._config.comment_suffix)
+  local checkbox_prefix, checkbox_suffix = M._config.checkbox_prefix, M._config.checkbox_suffix
+  -- Optional comment wrapping around $id{...}/$query{...} markers, e.g.
+  -- "<!-- " before and " -->" after.
+  local prefix, suffix = { lua = "", vim = "" }, { lua = "", vim = "" }
+  if M._config.comment_prefix ~= "" then
+    local encoded = M.utils.encode_patterns(M._config.comment_prefix)
+    prefix = { lua = encoded.lua .. " ", vim = encoded.vim .. " " }
+  end
+  if M._config.comment_suffix ~= "" then
+    local encoded = M.utils.encode_patterns(M._config.comment_suffix)
+    suffix = { lua = " " .. encoded.lua, vim = " " .. encoded.vim }
+  end
   M._config["status_pattern"] = {
-    lua = "(%" .. M._config.checkbox_prefix .. "([" .. status_pattern.lua .. "])%" .. M._config.checkbox_suffix .. ")",
-    vim = "(\\"
-      .. M._config.checkbox_prefix
-      .. "(["
-      .. status_pattern.vim
-      .. "])\\"
-      .. M._config.checkbox_suffix
-      .. ")",
+    lua = "(%" .. checkbox_prefix .. "([" .. status_pattern.lua .. "])%" .. checkbox_suffix .. ")",
+    vim = "(\\" .. checkbox_prefix .. "([" .. status_pattern.vim .. "])\\" .. checkbox_suffix .. ")",
   }
   M._config["checkbox_pattern"] = {
     lua = "(" .. M._config.list_pattern.lua .. ") " .. M._config["status_pattern"].lua,
     vim = "(" .. M._config.list_pattern.vim .. ") " .. M._config["status_pattern"].vim,
   }
   M._config["id_part_pattern"] = {
-    vim = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.vim .. " " or "")
-      .. "(\\$id{"
-      .. M._config.id_pattern.vim
-      .. "})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
-      .. ")",
-    lua = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.lua .. " " or "")
-      .. "(%$id{("
-      .. M._config.id_pattern.lua
-      .. ")})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.lua or "")
-      .. ")",
+    vim = "(" .. prefix.vim .. "(\\$id{" .. M._config.id_pattern.vim .. "})" .. suffix.vim .. ")",
+    lua = "(" .. prefix.lua .. "(%$id{(" .. M._config.id_pattern.lua .. ")})" .. suffix.lua .. ")",
   }
   M._config["task_pattern"] = {
     lua = M._config.checkbox_pattern.lua .. " (.*) " .. M._config.id_part_pattern.lua,
     vim = M._config.checkbox_pattern.vim .. " (.*) " .. M._config.id_part_pattern.vim,
   }
   M._config["task_query_pattern"] = {
-    vim = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.vim .. " " or "")
-      .. "(\\$query{([^\\|]*)|*([^}]*)})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
-      .. ")",
-    lua = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.lua .. " " or "")
-      .. "(%$query{([^%|]*)|*([^}]*)})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.lua or "")
-      .. ")",
+    vim = "(" .. prefix.vim .. "(\\$query{([^\\|]*)|*([^}]*)})" .. suffix.vim .. ")",
+    lua = "(" .. prefix.lua .. "(%$query{([^%|]*)|*([^}]*)})" .. suffix.lua .. ")",
   }
 end
 

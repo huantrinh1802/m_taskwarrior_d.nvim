@@ -8,5 +8,5 @@ exclude_files = { "lua/test.lua" }
 
 -- Pre-existing warnings (unused/overwritten locals). Remove a code from these
 -- lists once its warnings are fixed.
-files["lua/m_taskwarrior_d/init.lua"] = { ignore = { "211", "212", "311" } }
+files["lua/m_taskwarrior_d/init.lua"] = { ignore = { "211", "311" } }
 files["lua/m_taskwarrior_d/utils.lua"] = { ignore = { "111/_", "211", "311" } }
