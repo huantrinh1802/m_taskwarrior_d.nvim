@@ -822,6 +822,9 @@ function M.render_virtual_due_dates(start_line, end_line)
             vim.api.nvim_buf_set_extmark(bufnr, M.ns_due_id, row, 0, {
               virt_text = { calculate_time_diff(task_data) },
               virt_text_pos = "eol",
+              -- Hide the mark when its line is deleted (undo brings it
+              -- back) instead of letting it slide onto the next line.
+              invalidate = true,
             })
           end
         end
