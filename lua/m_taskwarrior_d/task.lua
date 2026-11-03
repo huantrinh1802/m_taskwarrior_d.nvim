@@ -14,13 +14,7 @@ function M.get_task_by(task_id, return_data)
   local handle = io.popen(command)
   local result = handle:read("*a")
   handle:close()
-  local task_info
-  if vim == nil then
-    local json = require("cjson")
-    task_info = json.decode(result)
-  else
-    task_info = vim.fn.json_decode(result)
-  end
+  local task_info = vim.fn.json_decode(result)
   if task_info and #task_info > 0 then
     if return_data == "task" then
       return task_info[1]
