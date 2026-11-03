@@ -11,6 +11,8 @@
 - Syntax check: `luajit -b lua/m_taskwarrior_d/<file>.lua /dev/null`
 - Regression tests: `nvim --headless -u NONE -c "lua dofile('lua/tests/test_task_batch.lua')"` and the same for `test_sync_render.lua`. They use a throwaway `TASKRC`/`TASKDATA` and need the real `task` binary.
 - `lua/test.lua`, `lua/test.json`, `lua/tests/test.md` are untracked scratch files.
+- Lint: `luacheck lua` (config in `.luacheckrc`; pre-existing warnings in `init.lua`/`utils.lua` are ignored by code — drop a code once fixed). Locally, install with `luarocks --lua-version 5.1 --lua-dir $(brew --prefix luajit) install --local luacheck` (the Lua 5.5 build of luacheck crashes).
+- CI: `.github/workflows/ci.yml` runs luacheck and both regression suites on push to `main` and on PRs, against Neovim v0.10.4 and stable with Ubuntu's apt Taskwarrior (2.6.x).
 
 ## Key APIs Used
 - `vim.system(args, { text = true })` sync (`:wait()`) and async (callback)
