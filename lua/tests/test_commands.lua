@@ -15,7 +15,10 @@ H.fake_nui_input()
 local plugin = require("m_taskwarrior_d")
 local utils = require("m_taskwarrior_d.utils")
 local task = require("m_taskwarrior_d.task")
+-- Due marks are switched on only for the check that covers them, so the
+-- other checks do not race async renders.
 plugin.setup({ display_due_or_scheduled = false })
+H.track_async(task)
 
 local saved_queries_file = tmp_dir .. "/m_taskwarrior_d.json"
 
@@ -146,6 +149,30 @@ check("TWShowDueOrScheduled and its Current variant render due marks", function(
   assert(vim.wait(5000, function()
     return marks() == 1
   end, 10), "no mark from TWShowDueOrScheduled")
+end)
+
+check("with due marks enabled, commands render them without errors", function()
+  local uuid = H.add("enabled due", { "due:now+3d", "project:enableddue" })
+  plugin._config.display_due_or_scheduled = true
+  local ok, err = pcall(function()
+    vim.v.errmsg = ""
+    for _, command in ipairs({ "TWSyncTasks", "TWEditTask", "TWQueryTasks", "TWBufQueryTasks" }) do
+      reset({ "## Due $query{project:enableddue}", "", "- [ ] x $id{" .. uuid .. "}" })
+      H.capture_print(function()
+        vim.cmd(command)
+      end)
+      H.wait_async()
+    end
+    reset()
+    H.capture_print(function()
+      vim.cmd("TWRun project:enableddue list")
+    end)
+    H.wait_async()
+    eq("", vim.v.errmsg)
+  end)
+  plugin._config.display_due_or_scheduled = false
+  H.close_floats()
+  assert(ok, err)
 end)
 
 H.section("TWView")
