@@ -366,7 +366,7 @@ function M.run_task_bulk(args, start_line, end_line)
         if uuid ~= nil then
           local task_args = { "task", "rc.confirmation=off", uuid }
           for _, a in ipairs(args) do
-            table.insert(task_args, a)
+            M.task.append_tokens(task_args, a)
           end
           local _, result = M.task.execute_task_args(task_args)
           table.insert(results, result .. "\n")
