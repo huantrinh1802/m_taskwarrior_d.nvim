@@ -79,7 +79,8 @@ function M.modify_task_status(task_id, new_status)
     M.execute_task_args({ "task", task_id, "start" })
   else
     local status = M.status_map[new_status]
-    M.execute_task_args({ "task", task_id, "modify", "status:" .. status })
+    -- Clear `start` too: a pending task that keeps it still reads as active.
+    M.execute_task_args({ "task", task_id, "modify", "status:" .. status, "start:" })
   end
 end
 
