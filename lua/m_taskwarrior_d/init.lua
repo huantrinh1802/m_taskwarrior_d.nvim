@@ -739,7 +739,7 @@ function M.setup(opts)
     local current_line, line_number = M.utils.get_line()
     M.utils.sync_task(current_line, line_number)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(line_number - 1, line_number)
     end
   end, {})
   -- Should rename to TWSyncAll
@@ -755,7 +755,7 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWSyncBulk", function(args)
     M.sync_tasks(args.line1, args.line2, args.bang)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(args.line1, args.line2)
+      M.utils.render_virtual_due_dates(args.line1 - 1, args.line2)
     end
   end, { range = true, bang = true })
   vim.api.nvim_create_user_command("TWSyncNote", function()
@@ -763,16 +763,15 @@ function M.setup(opts)
   end, {})
   vim.api.nvim_create_user_command("TWUpdateCurrent", function(args)
     M.update_current_task(args.line1, args.line2)
-    local _, line_number = M.utils.get_line()
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(args.line1 - 1, args.line2)
     end
   end, { range = true })
   vim.api.nvim_create_user_command("TWEditTask", function()
     M.edit_task()
     local _, line_number = M.utils.get_line()
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(line_number - 1, line_number)
     end
   end, {})
   vim.api.nvim_create_user_command("TWView", function()
@@ -782,7 +781,7 @@ function M.setup(opts)
     local _, line_number = M.utils.get_line()
     M.run_with_current(args.args)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(line_number - 1, line_number)
     end
   end, { nargs = "*" })
   vim.api.nvim_create_user_command("TWRun", function(args)
@@ -805,7 +804,7 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("TWRunBulk", function(args)
     M.run_task_bulk(args.fargs, args.line1, args.line2)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(args.line1, args.line2)
+      M.utils.render_virtual_due_dates(args.line1 - 1, args.line2)
     end
   end, { nargs = "*", range = true })
   vim.api.nvim_create_user_command("TWQueryTasks", function()
