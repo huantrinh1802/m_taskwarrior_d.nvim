@@ -166,15 +166,19 @@ end
 
 -- Replace tbl[key] with `stub` while running body(), restoring it even if
 -- body errors, and return body's results.
+local function pack(...)
+  return { n = select("#", ...), ... }
+end
+
 function H.with_stub(tbl, key, stub, body)
   local real = tbl[key]
   tbl[key] = stub
-  local result = { pcall(body, real) }
+  local result = pack(pcall(body, real))
   tbl[key] = real
   if not result[1] then
     error(result[2], 2)
   end
-  return unpack(result, 2)
+  return unpack(result, 2, result.n)
 end
 
 -- Call fn and return everything it print()ed (joined with "\n") plus fn's
