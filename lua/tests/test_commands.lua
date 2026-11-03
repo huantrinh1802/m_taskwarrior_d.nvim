@@ -80,6 +80,19 @@ check(":colorscheme restores the plugin's default highlight groups", function()
   end
 end)
 
+check("due highlights link to the diagnostic virtual-text groups", function()
+  eq("DiagnosticVirtualTextInfo", vim.api.nvim_get_hl(0, { name = "TWDueDate" }).link)
+  eq("DiagnosticVirtualTextWarn", vim.api.nvim_get_hl(0, { name = "TWDueSoon" }).link)
+  eq("DiagnosticVirtualTextError", vim.api.nvim_get_hl(0, { name = "TWDueOverdue" }).link)
+end)
+
+check("a user's due highlight survives the plugin's ColorScheme refresh", function()
+  vim.api.nvim_set_hl(0, "TWDueSoon", { fg = 0x123456 })
+  vim.api.nvim_exec_autocmds("ColorScheme", {})
+  eq({ fg = 0x123456 }, vim.api.nvim_get_hl(0, { name = "TWDueSoon" }))
+  vim.cmd("colorscheme default")
+end)
+
 H.section("sync commands")
 
 check("TWSyncCurrent syncs only the cursor line", function()
