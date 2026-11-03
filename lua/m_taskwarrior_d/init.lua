@@ -555,19 +555,27 @@ function M.query_tasks(line_number, query, report)
   -- Sort by entry descending (equivalent to jq 'sort_by(.entry) | reverse')
   table.sort(tasks, function(a, b) return (a.entry or "") > (b.entry or "") end)
   local lookup_table = M.utils.build_lookup(tasks)
+  -- Build trees only from roots (tasks no other result depends on). Building
+  -- one from a child first would mark the grandchildren visited, and they
+  -- would then be missing when the child is nested under its own parent.
+  local is_dependency = {}
   for _, item in ipairs(tasks) do
-    local hierarchy = M.utils.build_hierarchy(item, visited, lookup_table)
-    table.insert(processed_tasks, hierarchy)
+    for _, dependency in ipairs(item.depends or {}) do
+      is_dependency[dependency] = true
+    end
+  end
+  for _, item in ipairs(tasks) do
+    if not is_dependency[item.uuid] then
+      table.insert(processed_tasks, M.utils.build_hierarchy(item, visited, lookup_table))
+    end
   end
   local current_nested = 1
   for _, task in ipairs(processed_tasks) do
-    if not visited[task["uuid"]] then
-      if task[1] then
-        table.insert(final, current_nested, task)
-        current_nested = current_nested + 1
-      else
-        table.insert(final, task)
-      end
+    if task[1] then
+      table.insert(final, current_nested, task)
+      current_nested = current_nested + 1
+    else
+      table.insert(final, task)
     end
   end
   local markdown = M.utils.render_tasks(final)
