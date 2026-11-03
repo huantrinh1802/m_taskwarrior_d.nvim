@@ -212,6 +212,7 @@ check("does nothing without tasks, without safe mods, or at the end of the buffe
   eq({}, context_mods({ "## Q $query{+ctx}", "", "no tasks here" }))
   eq({}, context_mods({ "## Q $query{status:pending}", "- [ ] a $id{" .. u1 .. "}" }))
   eq({}, context_mods({ "## Q $query{+ctx}" }))
+  eq({}, context_mods({ "## not a query header", "- [ ] a $id{" .. u1 .. "}" }))
 end)
 
 check("modifications reach Taskwarrior in chunks of 50", function()
