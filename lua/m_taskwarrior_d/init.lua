@@ -2,6 +2,7 @@ local M = {}
 M.task = require("m_taskwarrior_d.task")
 M.utils = require("m_taskwarrior_d.utils")
 M.ui = require("m_taskwarrior_d.ui")
+M.frontmatter = require("m_taskwarrior_d.frontmatter")
 M.current_winid = nil
 M._config = {
   task_statuses = { " ", ">", "x", "~" },
@@ -19,9 +20,14 @@ M._config = {
   comment_suffix = "",
   file_patterns = { "*.md", "*.markdown" },
   display_due_or_scheduled = true,
+  -- Frontmatter task-note mode: one Markdown file = one Taskwarrior task.
+  frontmatter_indicator_key = "tw_task",
+  frontmatter_uuid_key = "uuid",
+  frontmatter_title_key = "title",
+  yq_bin = "yq",
 }
 
-function M.sync_tasks(start_position, end_position)
+function M.sync_tasks(start_position, end_position, sync_only_tracked)
   if start_position == nil then
     start_position = 1
   end
@@ -62,11 +68,27 @@ function M.sync_tasks(start_position, end_position)
   local synced = {}
   for _, item in ipairs(task_lines) do
     local current_line, _ = M.utils.get_line(item.line_number)
-    M.utils.sync_task(current_line, item.line_number, task_cache, synced)
+    M.utils.sync_task(current_line, item.line_number, task_cache, synced, sync_only_tracked)
   end
 
   for _, header in pairs(headers) do
     M.utils.apply_context_data(header.line, header.line_number)
+  end
+end
+
+-- Sync the current buffer's frontmatter block (if it opts in via
+-- frontmatter_indicator_key) to a single Taskwarrior task, then sync any
+-- already-tracked checkbox tasks in the body (never auto-creating untracked
+-- ones, so an ordinary checklist in the note doesn't become orphan tasks).
+function M.sync_note()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local uuid = M.frontmatter.sync_note(bufnr)
+  if uuid == nil then
+    return
+  end
+  M.sync_tasks(1, vim.api.nvim_buf_line_count(bufnr), true)
+  if M._config.display_due_or_scheduled then
+    M.utils.render_virtual_due_dates()
   end
 end
 
@@ -126,23 +148,21 @@ function M.toggle_task()
   end
 end
 
-function M.update_current_task()
-  local start_line = vim.fn.line("'<") -- Get the start line of the selection
-  local end_line = vim.fn.line("'>") -- Get the end line of the selection
-  if (start_line == 0) or (end_line == 0) then
-    local current_line, line_number = M.utils.get_line()
+-- Push the description of lines start_line..end_line (default: the cursor
+-- line) to Taskwarrior.
+function M.update_current_task(start_line, end_line)
+  start_line = start_line or vim.api.nvim_win_get_cursor(0)[1]
+  end_line = end_line or start_line
+  for line_num = start_line, end_line do
+    local current_line, line_number = M.utils.get_line(line_num)
     local result, _ = M.utils.add_or_sync_task(current_line, true)
     vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
-  else
-    for line_num = start_line, end_line do
-      local current_line, line_number = M.utils.get_line(line_num)
-      local result, _ = M.utils.add_or_sync_task(current_line, true)
-      vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
-    end
   end
 end
 
-local function find_next_index(item, inserted_list, table)
+-- Row at which a task_view_fields_order field goes, after the rows of the
+-- fields ordered before it; nil for any other field.
+local function find_next_index(item, inserted_list)
   if inserted_list[item] == nil then
     return nil
   end
@@ -155,7 +175,6 @@ local function find_next_index(item, inserted_list, table)
       return loc
     end
   end
-  return nil
 end
 
 function M.view_task()
@@ -172,43 +191,36 @@ function M.view_task()
   for _, v in ipairs(M._config.task_view_fields_order) do
     inserted[v] = false
   end
+  local head_width = M._config.view_task_config.head_width
+  local total_width = M._config.view_task_config.total_width
+  local blank_head = string.rep(" ", head_width)
+  local separator = string.rep("-", head_width + 1) .. "|--" .. string.rep("-", total_width - head_width)
   for k, v in pairs(task_info) do
-    local loc = find_next_index(k, inserted, md_table) or #md_table + 1
+    local loc = find_next_index(k, inserted) or #md_table + 1
     local number_of_lines = 0
     if type(v) == "table" then
+      -- List fields (tags, annotations, depends): one "- item" row each,
+      -- with long items wrapped onto a second row.
+      local width = total_width - head_width - 5
       for i, j in ipairs(v) do
         if i ~= 1 then
           loc = loc + 1
         end
-        local row
         if type(j) == "table" then
           j = j.description
         end
-        local head = ""
-        if i == 1 then
-          head = k .. string.rep(" ", M._config.view_task_config.head_width - #k)
-        else
-          head = string.rep(" ", M._config.view_task_config.head_width)
-        end
-        if #j > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 5 then
-          row = head
-            .. " | - "
-            .. j:sub(1, M._config.view_task_config.total_width - M._config.view_task_config.head_width - 5)
-          row = row:gsub("$%s+", "")
+        local head = i == 1 and k .. string.rep(" ", head_width - #k) or blank_head
+        local row
+        if #j > width then
+          row = (head .. " | - " .. j:sub(1, width)):gsub("$%s+", "")
           table.insert(md_table, loc, row)
           loc = loc + 1
           number_of_lines = number_of_lines + 1
-          head = string.rep(" ", M._config.view_task_config.head_width)
-          row = nil
-          row = head
-            .. " |"
-            .. j:sub(M._config.view_task_config.total_width - M._config.view_task_config.head_width - 4)
+          row = blank_head .. " |" .. j:sub(width + 1)
         else
           row = head .. " | - " .. j
         end
-        if row ~= nil then
-          table.insert(md_table, loc, row)
-        end
+        table.insert(md_table, loc, row)
         number_of_lines = number_of_lines + 1
       end
     else
@@ -216,21 +228,15 @@ function M.view_task()
         local local_time = M.utils.convert_timestamp_utc_local(v)
         v = os.date("%Y-%m-%d %H:%M", os.time(local_time))
       end
-      local row = nil
-      local head = k .. string.rep(" ", M._config.view_task_config.head_width - #k)
-      if
-        type(v) == "string"
-        and #v > M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3
-      then
-        row = head
-          .. " | "
-          .. v:sub(1, M._config.view_task_config.total_width - M._config.view_task_config.head_width - 3)
-        row = row:gsub("$%s+", "")
+      local width = total_width - head_width - 3
+      local head = k .. string.rep(" ", head_width - #k)
+      local row
+      if type(v) == "string" and #v > width then
+        row = (head .. " | " .. v:sub(1, width)):gsub("$%s+", "")
         table.insert(md_table, loc, row)
         loc = loc + 1
         number_of_lines = number_of_lines + 1
-        head = string.rep(" ", M._config.view_task_config.head_width)
-        row = head .. " |" .. v:sub(M._config.view_task_config.total_width - M._config.view_task_config.head_width - 2)
+        row = blank_head .. " |" .. v:sub(width + 1)
       else
         row = head .. " | " .. v
       end
@@ -238,13 +244,7 @@ function M.view_task()
       number_of_lines = number_of_lines + 1
       inserted[k] = number_of_lines + 1
     end
-    table.insert(
-      md_table,
-      loc + 1,
-      string.rep("-", M._config.view_task_config.head_width + 1)
-        .. "|--"
-        .. string.rep("-", M._config.view_task_config.total_width - M._config.view_task_config.head_width)
-    )
+    table.insert(md_table, loc + 1, separator)
   end
   local popup = M.ui.trigger_hover(md_table, "Task " .. uuid)
   vim.api.nvim_buf_set_option(popup.bufnr, "filetype", "markdown")
@@ -296,7 +296,7 @@ function M.run_task(args)
       M.task.append_tokens(task_args, a)
     end
     local _, result = M.task.execute_task_args(task_args, true)
-    if #result == 0 then
+    if vim.trim(result) == "" then
       print("No task found")
       return
     end
@@ -319,12 +319,16 @@ function M.run_task(args)
   end
 end
 
-function M.run_task_bulk(args)
+-- Run a task-changing command against every task on lines
+-- start_line..end_line (default: the cursor line).
+function M.run_task_bulk(args, start_line, end_line)
+  start_line = start_line or vim.api.nvim_win_get_cursor(0)[1]
+  end_line = end_line or start_line
   if #args == 0 then
     M.ui.prompt_or_run({
       title = "Run task",
       run = function(value)
-        M.run_task_bulk({ value })
+        M.run_task_bulk({ value }, start_line, end_line)
       end,
     })
   else
@@ -337,8 +341,6 @@ function M.run_task_bulk(args)
       end
     end
     if good_command then
-      local start_line = vim.fn.line("'<") -- Get the start line of the selection
-      local end_line = vim.fn.line("'>") -- Get the end line of the selection
       local results = {}
       for line_num = start_line, end_line do
         local current_line, _ = M.utils.get_line(line_num)
@@ -346,7 +348,7 @@ function M.run_task_bulk(args)
         if uuid ~= nil then
           local task_args = { "task", "rc.confirmation=off", uuid }
           for _, a in ipairs(args) do
-            table.insert(task_args, a)
+            M.task.append_tokens(task_args, a)
           end
           local _, result = M.task.execute_task_args(task_args)
           table.insert(results, result .. "\n")
@@ -540,34 +542,40 @@ function M.query_tasks(line_number, query, report)
   table.insert(args, "export")
   M.task.append_tokens(args, report)
   local _, result = M.task.execute_task_args(args, true)
-  if result == nil then
+  -- A failed export (e.g. an invalid filter or report) prints nothing to
+  -- stdout, and decoding "" or "null" does not give a list.
+  local ok, tasks = pcall(vim.json.decode, result or "")
+  if not ok or type(tasks) ~= "table" then
     print("No results")
     return
   end
-  local tasks = vim.fn.json_decode(result)
   local visited = {}
   local processed_tasks = {}
   local final = {}
-  if tasks == nil then
-    print("No results")
-    return
-  end
   -- Sort by entry descending (equivalent to jq 'sort_by(.entry) | reverse')
   table.sort(tasks, function(a, b) return (a.entry or "") > (b.entry or "") end)
   local lookup_table = M.utils.build_lookup(tasks)
+  -- Build trees only from roots (tasks no other result depends on). Building
+  -- one from a child first would mark the grandchildren visited, and they
+  -- would then be missing when the child is nested under its own parent.
+  local is_dependency = {}
   for _, item in ipairs(tasks) do
-    local hierarchy = M.utils.build_hierarchy(item, visited, lookup_table)
-    table.insert(processed_tasks, hierarchy)
+    for _, dependency in ipairs(item.depends or {}) do
+      is_dependency[dependency] = true
+    end
+  end
+  for _, item in ipairs(tasks) do
+    if not is_dependency[item.uuid] then
+      table.insert(processed_tasks, M.utils.build_hierarchy(item, visited, lookup_table))
+    end
   end
   local current_nested = 1
   for _, task in ipairs(processed_tasks) do
-    if not visited[task["uuid"]] then
-      if task[1] then
-        table.insert(final, current_nested, task)
-        current_nested = current_nested + 1
-      else
-        table.insert(final, task)
-      end
+    if task[1] then
+      table.insert(final, current_nested, task)
+      current_nested = current_nested + 1
+    else
+      table.insert(final, task)
     end
   end
   local markdown = M.utils.render_tasks(final)
@@ -597,53 +605,37 @@ local function process_opts(opts)
     end
   end
   local status_pattern = M.utils.encode_patterns(table.concat(M._config.task_statuses, ""))
-  local comment_prefix_encoded = M.utils.encode_patterns(M._config.comment_prefix)
-  local comment_suffix_encoded = M.utils.encode_patterns(M._config.comment_suffix)
+  local checkbox_prefix, checkbox_suffix = M._config.checkbox_prefix, M._config.checkbox_suffix
+  -- Optional comment wrapping around $id{...}/$query{...} markers, e.g.
+  -- "<!-- " before and " -->" after.
+  local prefix, suffix = { lua = "", vim = "" }, { lua = "", vim = "" }
+  if M._config.comment_prefix ~= "" then
+    local encoded = M.utils.encode_patterns(M._config.comment_prefix)
+    prefix = { lua = encoded.lua .. " ", vim = encoded.vim .. " " }
+  end
+  if M._config.comment_suffix ~= "" then
+    local encoded = M.utils.encode_patterns(M._config.comment_suffix)
+    suffix = { lua = " " .. encoded.lua, vim = " " .. encoded.vim }
+  end
   M._config["status_pattern"] = {
-    lua = "(%" .. M._config.checkbox_prefix .. "([" .. status_pattern.lua .. "])%" .. M._config.checkbox_suffix .. ")",
-    vim = "(\\"
-      .. M._config.checkbox_prefix
-      .. "(["
-      .. status_pattern.vim
-      .. "])\\"
-      .. M._config.checkbox_suffix
-      .. ")",
+    lua = "(%" .. checkbox_prefix .. "([" .. status_pattern.lua .. "])%" .. checkbox_suffix .. ")",
+    vim = "(\\" .. checkbox_prefix .. "([" .. status_pattern.vim .. "])\\" .. checkbox_suffix .. ")",
   }
   M._config["checkbox_pattern"] = {
     lua = "(" .. M._config.list_pattern.lua .. ") " .. M._config["status_pattern"].lua,
     vim = "(" .. M._config.list_pattern.vim .. ") " .. M._config["status_pattern"].vim,
   }
   M._config["id_part_pattern"] = {
-    vim = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.vim .. " " or "")
-      .. "(\\$id{"
-      .. M._config.id_pattern.vim
-      .. "})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
-      .. ")",
-    lua = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.lua .. " " or "")
-      .. "(%$id{("
-      .. M._config.id_pattern.lua
-      .. ")})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.lua or "")
-      .. ")",
+    vim = "(" .. prefix.vim .. "(\\$id{" .. M._config.id_pattern.vim .. "})" .. suffix.vim .. ")",
+    lua = "(" .. prefix.lua .. "(%$id{(" .. M._config.id_pattern.lua .. ")})" .. suffix.lua .. ")",
   }
   M._config["task_pattern"] = {
     lua = M._config.checkbox_pattern.lua .. " (.*) " .. M._config.id_part_pattern.lua,
     vim = M._config.checkbox_pattern.vim .. " (.*) " .. M._config.id_part_pattern.vim,
   }
   M._config["task_query_pattern"] = {
-    vim = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.vim .. " " or "")
-      .. "(\\$query{([^\\|]*)|*([^}]*)})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.vim or "")
-      .. ")",
-    lua = "("
-      .. (M._config.comment_prefix ~= "" and comment_prefix_encoded.lua .. " " or "")
-      .. "(%$query{([^%|]*)|*([^}]*)})"
-      .. (M._config.comment_suffix ~= "" and " " .. comment_suffix_encoded.lua or "")
-      .. ")",
+    vim = "(" .. prefix.vim .. "(\\$query{([^\\|]*)|*([^}]*)})" .. suffix.vim .. ")",
+    lua = "(" .. prefix.lua .. "(%$query{([^%|]*)|*([^}]*)})" .. suffix.lua .. ")",
   }
 end
 
@@ -675,6 +667,7 @@ function M.setup(opts)
   M.utils.set_config(M._config)
   M.task.set_config(M._config)
   M.ui.set_config(M._config)
+  M.frontmatter.set_config(M._config)
   local conceal_group = vim.api.nvim_create_augroup("TWConceal", { clear = true })
   set_default_highlights()
   -- `:colorscheme` runs `:hi clear`, which drops the plugin's groups.
@@ -712,36 +705,39 @@ function M.setup(opts)
     local current_line, line_number = M.utils.get_line()
     M.utils.sync_task(current_line, line_number)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(line_number - 1, line_number)
     end
   end, {})
   -- Should rename to TWSyncAll
-  vim.api.nvim_create_user_command("TWSyncTasks", function()
-    M.sync_tasks()
+  -- With a bang (:TWSyncTasks!), only already-tracked ($id{...}) checkbox
+  -- lines are synced; untracked lines are left alone instead of being
+  -- auto-added as new Taskwarrior tasks.
+  vim.api.nvim_create_user_command("TWSyncTasks", function(args)
+    M.sync_tasks(nil, nil, args.bang)
     if M._config.display_due_or_scheduled then
       M.utils.render_virtual_due_dates()
     end
-  end, {})
-  vim.api.nvim_create_user_command("TWSyncBulk", function()
-    local start_line = vim.fn.line("'<") -- Get the start line of the selection
-    local end_line = vim.fn.line("'>") -- Get the end line of the selection
-    M.sync_tasks(start_line, end_line)
+  end, { bang = true })
+  vim.api.nvim_create_user_command("TWSyncBulk", function(args)
+    M.sync_tasks(args.line1, args.line2, args.bang)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(start_line, end_line)
+      M.utils.render_virtual_due_dates(args.line1 - 1, args.line2)
     end
-  end, { range = true })
-  vim.api.nvim_create_user_command("TWUpdateCurrent", function()
-    M.update_current_task()
-    local _, line_number = M.utils.get_line()
+  end, { range = true, bang = true })
+  vim.api.nvim_create_user_command("TWSyncNote", function()
+    M.sync_note()
+  end, {})
+  vim.api.nvim_create_user_command("TWUpdateCurrent", function(args)
+    M.update_current_task(args.line1, args.line2)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(args.line1 - 1, args.line2)
     end
   end, { range = true })
   vim.api.nvim_create_user_command("TWEditTask", function()
     M.edit_task()
     local _, line_number = M.utils.get_line()
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(line_number - 1, line_number)
     end
   end, {})
   vim.api.nvim_create_user_command("TWView", function()
@@ -751,7 +747,7 @@ function M.setup(opts)
     local _, line_number = M.utils.get_line()
     M.run_with_current(args.args)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(line_number)
+      M.utils.render_virtual_due_dates(line_number - 1, line_number)
     end
   end, { nargs = "*" })
   vim.api.nvim_create_user_command("TWRun", function(args)
@@ -772,11 +768,9 @@ function M.setup(opts)
     M.toggle_saved_queries()
   end, {})
   vim.api.nvim_create_user_command("TWRunBulk", function(args)
-    M.run_task_bulk(args.fargs)
-    local start_line = vim.fn.line("'<") -- Get the start line of the selection
-    local end_line = vim.fn.line("'>") -- Get the end line of the selection
+    M.run_task_bulk(args.fargs, args.line1, args.line2)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(start_line, end_line)
+      M.utils.render_virtual_due_dates(args.line1 - 1, args.line2)
     end
   end, { nargs = "*", range = true })
   vim.api.nvim_create_user_command("TWQueryTasks", function()

@@ -14,13 +14,7 @@ function M.get_task_by(task_id, return_data)
   local handle = io.popen(command)
   local result = handle:read("*a")
   handle:close()
-  local task_info
-  if vim == nil then
-    local json = require("cjson")
-    task_info = json.decode(result)
-  else
-    task_info = vim.fn.json_decode(result)
-  end
+  local task_info = vim.fn.json_decode(result)
   if task_info and #task_info > 0 then
     if return_data == "task" then
       return task_info[1]
@@ -78,6 +72,23 @@ function M.modify_task(task_id, desc)
   M.execute_task_args(args, false)
 end
 
+-- Apply already-formed "key:value" (or "+tag"/"-tag") modification strings to
+-- a task. Unlike modify_task/append_tokens, each entry in `kv_pairs` is
+-- pushed as a single argv element without whitespace-tokenizing it, so
+-- values containing spaces (e.g. "project:Personal Project") are not
+-- corrupted. Safe because execute_task_args uses vim.system(args) and
+-- bypasses the shell entirely.
+function M.modify_task_attrs(uuid, kv_pairs)
+  if not kv_pairs or #kv_pairs == 0 then
+    return
+  end
+  local args = { "task", uuid, "modify" }
+  for _, kv in ipairs(kv_pairs) do
+    table.insert(args, kv)
+  end
+  M.execute_task_args(args, false)
+end
+
 --Function to modify task's status completed, (pending), deleted, started, canceled
 function M.modify_task_status(task_id, new_status)
   if M.status_map[new_status] == "active" then
@@ -85,7 +96,8 @@ function M.modify_task_status(task_id, new_status)
     M.execute_task_args({ "task", task_id, "start" })
   else
     local status = M.status_map[new_status]
-    M.execute_task_args({ "task", task_id, "modify", "status:" .. status })
+    -- Clear `start` too: a pending task that keeps it still reads as active.
+    M.execute_task_args({ "task", task_id, "modify", "status:" .. status, "start:" })
   end
 end
 

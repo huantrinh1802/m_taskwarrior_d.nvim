@@ -1,0 +1,3 @@
+return {
+  include = { "lua/m_taskwarrior_d/[^/]+$" },
+}

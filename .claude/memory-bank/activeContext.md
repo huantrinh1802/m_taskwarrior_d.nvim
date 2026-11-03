@@ -1,6 +1,18 @@
 # Active Context: m_taskwarrior_d.nvim
 
-## Current Focus
+## Current Focus (2026-11-03)
+Branch `chore/test-coverage` (on top of `feature/frontmatter-task-notes`): full test coverage. Bugs found by the new tests were fixed in separate `fix:` commits:
+- query trees dropped grandchildren; a debug print on every query
+- failed query exports raised E474
+- nested sync made parents depend on grandchildren (trees rendered flattened)
+- leaving `[>]` never cleared `start` (lines flipped back to active)
+- context mods hit only the first task when the header had no blank line after it, and applied `status:`/`uuid:`/`id:` filter tokens
+- `convert_timestamp_utc_local` was an hour off across DST (`:TWView` dates)
+- `:TWSyncBulk`/`:TWUpdateCurrent`/`:TWRunBulk` ignored their range (used stale `'<`/`'>` marks); `:TWRunBulk`'s prompt lost the range and passed its input as one argv token
+- `:TWRun` crashed on whitespace-only output
+- commands refreshed due marks from the wrong line (0- vs 1-based)
+
+## Previous Focus
 Branch `fix/performance-batch-taskwarrior-calls`: batching Taskwarrior CLI calls plus the correctness fixes found while reviewing it. All review items are fixed except one (see Open Questions). Ready for final review / merge to `main`.
 
 ## Recent Changes (review follow-ups, 2026-10-23)

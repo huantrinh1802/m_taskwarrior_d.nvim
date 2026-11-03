@@ -10,30 +10,9 @@ M.task_pattern = {
 }
 M.task = require("m_taskwarrior_d.task")
 
+-- Local date fields (os.date("*t")) for a Taskwarrior UTC timestamp.
 function M.convert_timestamp_utc_local(timestamp_utc)
-  local year = tonumber(string.sub(timestamp_utc, 1, 4))
-  local month = tonumber(string.sub(timestamp_utc, 5, 6))
-  local day = tonumber(string.sub(timestamp_utc, 7, 8))
-  local hour = tonumber(string.sub(timestamp_utc, 10, 11))
-  local min = tonumber(string.sub(timestamp_utc, 12, 13))
-  local sec = tonumber(string.sub(timestamp_utc, 14, 15))
-
-  -- Convert UTC time to local time
-  local utc_time = os.time({ year = year, month = month, day = day, hour = hour, min = min, sec = sec, dst = true })
-  -- Get the local timezone offset in seconds
-  local local_tz_offset = os.time() - os.time(os.date("!*t"))
-
-  -- Check if the local timezone is currently observing daylight saving time
-  local local_time = os.date("*t", os.time())
-  local local_dst = local_time.isdst
-
-  -- Adjust the offset if daylight saving time is in effect
-  if local_dst then
-    local_tz_offset = local_tz_offset + 3600 -- Add an hour for daylight saving time
-  end
-
-  -- Convert UTC time to local time by adding the timezone offset
-  return os.date("*t", utc_time + local_tz_offset) -- Convert UTC time to local time
+  return os.date("*t", M.parse_ISO8601_date(timestamp_utc))
 end
 
 function M.encode_patterns(str)
@@ -133,9 +112,6 @@ function M.trim(st)
 end
 
 local function count_leading_spaces(line)
-  if line == nil then
-    return nil
-  end
   local count = 0
   for i = 1, #line do
     if line:sub(i, i) == " " then
@@ -185,17 +161,6 @@ function findPair(table, search_key, search_value)
       return key, value
     end
   end
-end
-
-local function concat_with_quotes(tbl)
-  local result = ""
-  for i, v in ipairs(tbl) do
-    if i > 1 then
-      result = result .. ","
-    end
-    result = result .. '"' .. v .. '"'
-  end
-  return result
 end
 
 -- Tokenize a string into an array of tokens, respecting quoted strings and escape sequences.
@@ -269,10 +234,6 @@ local function tokenize_tw_args(str)
 end
 
 local function is_safe_mod_token(token)
-  if not token or token == "" then
-    return false
-  end
-
   -- Filter/expression tokens that must not be applied as modifications.
   if token == "(" or token == ")" then
     return false
@@ -300,11 +261,11 @@ local function is_safe_mod_token(token)
   -- Attribute modification like project:Home, priority:H, due:tomorrow.
   -- Only accept plain attribute:value forms (no modifiers like .before/.not etc).
   -- Those are filter-specific and don't translate cleanly to a modification.
+  -- status/uuid/id select tasks; applying them would complete, delete or
+  -- re-identify every task in the block.
   if token:match("^[%w_]+:[^%s]+$") then
-    local attr = token:match("^([%w_]+):")
-    if attr and not attr:find("%.", 1, true) then
-      return true
-    end
+    local attr = token:match("^([%w_]+):"):lower()
+    return attr ~= "status" and attr ~= "uuid" and attr ~= "id"
   end
 
   return false
@@ -371,13 +332,7 @@ end
 function M.update_related_tasks_statuses(uuid)
   local task_mod = require("m_taskwarrior_d.task")
   local _, result = task_mod.get_blocked_tasks_by(uuid)
-  local tasks
-  if vim == nil then
-    local json = require("cjson")
-    tasks = json.decode(result)
-  else
-    tasks = vim.fn.json_decode(result)
-  end
+  local tasks = vim.fn.json_decode(result)
   for _, task in ipairs(tasks) do
     local _, dependencies = task_mod.get_tasks_by(task["depends"])
     local new_status = calculate_final_status(dependencies)
@@ -415,19 +370,26 @@ function M.toggle_task_status(current_line, line_number, new_status)
   return new_status
 end
 
-function M.add_or_sync_task(line, replace_desc, task_cache)
+-- The " $id{uuid}" marker appended to a task line, wrapped in
+-- comment_prefix/comment_suffix when those are configured.
+local function id_marker(uuid)
+  local prefix = M.comment_prefix ~= "" and " " .. M.comment_prefix or ""
+  local suffix = M.comment_suffix ~= "" and " " .. M.comment_suffix or ""
+  return prefix .. " $id{" .. uuid .. "}" .. suffix
+end
+
+function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
   local list_sb, _, status = string.match(line, M.checkbox_pattern.lua)
   local desc = string.gsub(line, M.checkbox_pattern.lua, "")
   local result
   local _, _, uuid = string.match(line, M.id_part_pattern.lua)
   if uuid == nil then
+    if sync_only_tracked then
+      -- Never auto-create a task for an untracked line in this mode.
+      return line, nil
+    end
     uuid = require("m_taskwarrior_d.task").add_task(desc)
-    result = line:gsub("%s+$", "")
-      .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-      .. " $id{"
-      .. uuid
-      .. "}"
-      .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+    result = line:gsub("%s+$", "") .. id_marker(uuid)
   else
     desc = string.gsub(desc, M.id_part_pattern.lua, "")
     local cached_task = task_cache and task_cache[uuid]
@@ -435,12 +397,7 @@ function M.add_or_sync_task(line, replace_desc, task_cache)
     if not task_exists then
       line = string.gsub(line, M.id_part_pattern.lua, "")
       uuid = require("m_taskwarrior_d.task").add_task(desc)
-      result = line:gsub("%s+$", "")
-        .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-        .. " $id{"
-        .. uuid
-        .. "}"
-        .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+      result = line:gsub("%s+$", "") .. id_marker(uuid)
     else
       local new_task = cached_task or require("m_taskwarrior_d.task").get_task_by(uuid, "task")
       if new_task then
@@ -456,37 +413,14 @@ function M.add_or_sync_task(line, replace_desc, task_cache)
         end
         status = new_task_status_sym
         uuid = new_task.uuid
-        local spaces = count_leading_spaces(line)
+        -- Taskwarrior's description wins unless the buffer's is being pushed.
+        local description = new_task.description
         if replace_desc then
           require("m_taskwarrior_d.task").modify_task(uuid, desc)
-          result = string.rep(" ", spaces or 0)
-            .. list_sb
-            .. " "
-            .. M.checkbox_prefix
-            .. new_task_status_sym
-            .. M.checkbox_suffix
-            .. " "
-            .. M.trim(desc)
-            .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-            .. " $id{"
-            .. new_task.uuid
-            .. "}"
-            .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
-        else
-          result = string.rep(" ", spaces or 0)
-            .. list_sb
-            .. " "
-            .. M.checkbox_prefix
-            .. new_task_status_sym
-            .. M.checkbox_suffix
-            .. " "
-            .. new_task.description
-            .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-            .. " $id{"
-            .. new_task.uuid
-            .. "}"
-            .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+          description = M.trim(desc)
         end
+        local checkbox = list_sb .. " " .. M.checkbox_prefix .. new_task_status_sym .. M.checkbox_suffix
+        result = string.rep(" ", count_leading_spaces(line)) .. checkbox .. " " .. description .. id_marker(uuid)
       else
         result = line
       end
@@ -508,7 +442,7 @@ end
 -- `synced` (optional) is a set of line numbers already passed through
 -- add_or_sync_task in this sync run; those lines are only read for their
 -- uuid, and every line this call syncs is added to it.
-function M.check_dependencies(line_number, task_cache, synced)
+function M.check_dependencies(line_number, task_cache, synced, sync_only_tracked)
   local current_line, _ = M.get_line(line_number)
   if current_line == nil then
     return nil
@@ -522,13 +456,14 @@ function M.check_dependencies(line_number, task_cache, synced)
     return nil, nil
   end
   local next_number_of_spaces = count_leading_spaces(next_line)
-  if next_number_of_spaces == nil then
-    return nil, nil
-  end
   local _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
   if checkbox == nil then
     return nil, nil
   end
+  -- Every deeper line is synced, but only direct children (no deeper than
+  -- the shallowest child so far) become dependencies; grandchildren belong
+  -- to their own parent line, which gets its dependencies when it is synced.
+  local child_spaces = next_number_of_spaces
   while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
     local next_line_number = line_number + count
     local uuid
@@ -536,13 +471,19 @@ function M.check_dependencies(line_number, task_cache, synced)
       _, uuid = M.extract_uuid(next_line)
     else
       local result
-      result, uuid = M.add_or_sync_task(next_line, false, task_cache)
+      result, uuid = M.add_or_sync_task(next_line, false, task_cache, sync_only_tracked)
       vim.api.nvim_buf_set_lines(0, next_line_number - 1, next_line_number, false, { result })
       if synced then
         synced[next_line_number] = true
       end
     end
-    table.insert(deps, uuid)
+    if next_number_of_spaces <= child_spaces then
+      child_spaces = next_number_of_spaces
+      -- nil when sync_only_tracked skipped an untracked child line
+      if uuid then
+        table.insert(deps, uuid)
+      end
+    end
     count = count + 1
     next_line = M.get_line(line_number + count)
     if next_line ~= nil then
@@ -553,11 +494,11 @@ function M.check_dependencies(line_number, task_cache, synced)
   return current_uuid, deps
 end
 
-function M.sync_task(current_line, line_number, task_cache, synced)
+function M.sync_task(current_line, line_number, task_cache, synced, sync_only_tracked)
   -- A nested line was already synced by its parent's check_dependencies;
   -- it still needs its own check_dependencies for its children.
   if not (synced and synced[line_number]) then
-    local result, _ = M.add_or_sync_task(current_line, false, task_cache)
+    local result, _ = M.add_or_sync_task(current_line, false, task_cache, sync_only_tracked)
     if result then
       vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
     end
@@ -565,7 +506,7 @@ function M.sync_task(current_line, line_number, task_cache, synced)
       synced[line_number] = true
     end
   end
-  local current_uuid, deps = M.check_dependencies(line_number, task_cache, synced)
+  local current_uuid, deps = M.check_dependencies(line_number, task_cache, synced, sync_only_tracked)
   if current_uuid ~= nil then
     require("m_taskwarrior_d.task").add_task_deps(current_uuid, deps)
   end
@@ -601,22 +542,9 @@ function M.build_hierarchy(item, visited, lookup)
         return dep_a.entry < dep_b.entry
       end
 
-      -- 3. Tie-break: dependency chain check
-      local a_depends_on_b = dep_a.depends and vim.tbl_contains(dep_a.depends, dep_b.uuid)
-      local b_depends_on_a = dep_b.depends and vim.tbl_contains(dep_b.depends, dep_a.uuid)
-      if a_depends_on_b then
-        return true -- if b depends on a, a should come first
-      else
-        return false
-      end
-      -- 1. Check if they have dependencies
-      local a_has_deps = dep_a.depends and #dep_a.depends > 0
-      local b_has_deps = dep_b.depends and #dep_b.depends > 0
-      if a_has_deps ~= b_has_deps then
-        return a_has_deps
-      end
+      -- 3. Tie-break: a task that depends on its sibling comes first
+      return dep_a.depends ~= nil and vim.tbl_contains(dep_a.depends, dep_b.uuid)
     end)
-    print(vim.inspect(dependencies))
     for _, dependency in ipairs(dependencies) do
       if not visited[dependency] then
         visited[dependency] = true
@@ -663,11 +591,7 @@ function M.render_tasks(tasks, depth)
           .. M.checkbox_suffix
           .. " "
           .. task.desc
-          .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-          .. " $id{"
-          .. task.uuid
-          .. "}"
-          .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+          .. id_marker(task.uuid)
       )
       if task[1] then
         local nested_tasks = M.render_tasks(task, depth + 1)
@@ -692,28 +616,23 @@ function M.apply_context_data(line, line_number)
   -- Extract only tokens that are safe to apply as modifications.
   local mods = extract_safe_mods_from_filter(query)
   query = table.concat(mods, " ")
-  local count = 1
-  local uuid = nil
+  -- The block is the lines after the header (past one blank line, which is
+  -- how query results are rendered) up to the next blank line or the end.
   local tasks = {}
-  local next_line, next_line_number = M.get_line(line_number + count)
-  _, uuid = M.extract_uuid(next_line)
-  if uuid then
-    table.insert(tasks, uuid)
+  local next_line_number = line_number + 1
+  if vim.trim(M.get_line(next_line_number)) == "" then
+    next_line_number = next_line_number + 1
   end
-  local block_ended = true
-  if #next_line == 0 or next_line == " " then
-    block_ended = false
-  end
-  while not block_ended and next_line_number <= no_of_lines do
-    count = count + 1
-    next_line, next_line_number = M.get_line(line_number + count)
-    if next_line_number == no_of_lines or #next_line == 0 or next_line == " " then
-      block_ended = true
+  while next_line_number <= no_of_lines do
+    local next_line = M.get_line(next_line_number)
+    if vim.trim(next_line) == "" then
+      break
     end
-    _, uuid = M.extract_uuid(next_line)
+    local _, uuid = M.extract_uuid(next_line)
     if uuid then
       table.insert(tasks, uuid)
     end
+    next_line_number = next_line_number + 1
   end
   if #tasks == 0 or #query == 0 then
     return
@@ -787,6 +706,7 @@ function M.parse_ISO8601_date(iso_date)
   return as_local + os.difftime(as_local, os.time(utc_fields))
 end
 
+-- `task_data` must have a due or scheduled date.
 local function calculate_time_diff(task_data)
   local target_time
   local time_text = ""
@@ -799,10 +719,6 @@ local function calculate_time_diff(task_data)
   if task_data.due then
     time_text = "Due: "
     target_time = M.parse_ISO8601_date(task_data.due)
-  end
-
-  if not target_time then
-    return
   end
 
   local current_time = os.time()
@@ -910,13 +826,10 @@ function M.render_virtual_due_dates(start_line, end_line)
           vim.api.nvim_buf_clear_namespace(bufnr, M.ns_due_id, row, row + 1)
           local task_data = task_data_map[uuid]
           if task_data and (task_data.status ~= "deleted" and task_data.status ~= "completed") and (task_data.due or task_data.scheduled) then
-            local text_tuple = calculate_time_diff(task_data)
-            if text_tuple then
-              vim.api.nvim_buf_set_extmark(bufnr, M.ns_due_id, row, 0, {
-                virt_text = { text_tuple },
-                virt_text_pos = "eol",
-              })
-            end
+            vim.api.nvim_buf_set_extmark(bufnr, M.ns_due_id, row, 0, {
+              virt_text = { calculate_time_diff(task_data) },
+              virt_text_pos = "eol",
+            })
           end
         end
       end

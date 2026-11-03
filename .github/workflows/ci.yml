@@ -16,23 +16,54 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      TASKWARRIOR_VERSION: 3.5.0
     strategy:
       fail-fast: false
       matrix:
-        nvim: [v0.10.4, stable]
+        include:
+          - nvim: v0.10.4
+            coverage: false
+          - nvim: stable
+            coverage: true
     steps:
       - uses: actions/checkout@v5
       - uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
           version: ${{ matrix.nvim }}
-      - name: Install Taskwarrior
-        run: sudo apt-get update && sudo apt-get install -y taskwarrior
+      # Ubuntu only packages Taskwarrior 2.6 and upstream ships source only,
+      # so build the release once and cache the install.
+      - name: Cache Taskwarrior
+        id: taskwarrior-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/taskwarrior
+          key: taskwarrior-${{ env.TASKWARRIOR_VERSION }}-${{ runner.os }}
+      - name: Build Taskwarrior
+        if: steps.taskwarrior-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y uuid-dev
+          curl -fsSL "https://github.com/GothenburgBitFactory/taskwarrior/releases/download/v${TASKWARRIOR_VERSION}/task-${TASKWARRIOR_VERSION}.tar.gz" | tar xz
+          cmake -S "task-${TASKWARRIOR_VERSION}" -B tw-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/.local/taskwarrior"
+          cmake --build tw-build -j "$(nproc)"
+          cmake --install tw-build
+      - name: Add Taskwarrior to PATH
+        run: echo "$HOME/.local/taskwarrior/bin" >> "$GITHUB_PATH"
+      # luacov is pure Lua, so Neovim's LuaJIT only needs its sources on LUA_PATH.
+      - name: Fetch luacov
+        if: matrix.coverage
+        run: git clone --quiet --depth 1 --branch v0.17.0 https://github.com/lunarmodules/luacov "$RUNNER_TEMP/luacov"
       - name: Versions
         run: |
           nvim --version | head -1
           task --version
-      - name: test_task_batch
-        run: nvim --headless -u NONE -c "lua dofile('lua/tests/test_task_batch.lua')"
-      - name: test_sync_render
-        run: nvim --headless -u NONE -c "lua dofile('lua/tests/test_sync_render.lua')"
+          yq --version # preinstalled on GitHub's Ubuntu image; the frontmatter suite needs it
+      - name: Tests
+        if: ${{ !matrix.coverage }}
+        run: scripts/test.sh
+      - name: Tests with coverage
+        if: matrix.coverage
+        run: |
+          export LUA_PATH="$RUNNER_TEMP/luacov/src/?.lua;;"
+          COVERAGE=1 COVERAGE_MIN=100 scripts/test.sh
