@@ -10,7 +10,7 @@
 - No build system or package manager.
 - Syntax check: `luajit -b lua/m_taskwarrior_d/<file>.lua /dev/null`
 - Tests: `scripts/test.sh` runs every `lua/tests/test_*.lua` in its own headless Neovim (or pass suite paths). Suites use `lua/tests/helpers.lua` (isolated `TASKRC`/`TASKDATA`, stubs, print/notify capture) and need the real `task` binary; `test_commands`/`test_comment_markers` need nui.nvim (`$NUI_PATH`, else cloned into `.tests/`), `test_frontmatter` needs `yq` (skips without it).
-- Coverage: `eval "$(luarocks --lua-version 5.1 path)"; COVERAGE=1 COVERAGE_MIN=100 scripts/test.sh` (luacov for LuaJIT: `luarocks --lua-version 5.1 --lua-dir $(brew --prefix luajit) install --local luacov`). Line coverage is 100% across all six modules.
+- Coverage: `eval "$(luarocks --lua-version 5.1 path)"; COVERAGE=1 COVERAGE_MIN=100 scripts/test.sh` (luacov for LuaJIT: `luarocks --lua-version 5.1 --lua-dir $(brew --prefix luajit) install --local luacov`). luacov only needs its Lua sources on `LUA_PATH` (CI clones v0.17.0); `includeuntestedfiles` was dropped because it needs the compiled `lfs`, and `scripts/test.sh` instead fails if a `lua/m_taskwarrior_d/*.lua` module is missing from the report. Line coverage is 100% across all six modules.
 - LuaJIT credits the first line of a multi-line expression to a later line, so luacov reports such lines as missed even when they ran; keep expressions on one line (or name parts) rather than adding `luacov: disable`.
 - nui.input does not take focus headlessly when mounted from a :command, so `test_commands` fakes it (`H.fake_nui_input`/`H.submit_input`); popups, menus and splits are real.
 - `lua/test.lua`, `lua/test.json`, `lua/tests/test.md` are untracked scratch files.
