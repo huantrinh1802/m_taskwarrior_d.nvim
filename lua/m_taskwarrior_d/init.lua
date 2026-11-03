@@ -631,12 +631,13 @@ end
 
 -- Plugin-owned highlight groups. `default = true` leaves any definition the
 -- user or their colorscheme already made, and nothing touches the global
--- Conceal group other buffers use.
+-- Conceal group other buffers use. Due marks link to the diagnostic
+-- virtual-text groups so they follow the colorscheme.
 local function set_default_highlights()
   vim.api.nvim_set_hl(0, "TWConceal", { default = true, fg = "#83a598", ctermfg = 109 })
-  vim.api.nvim_set_hl(0, "TWDueDate", { default = true, fg = "#6495ED", ctermfg = 68 })
-  vim.api.nvim_set_hl(0, "TWDueSoon", { default = true, fg = "#FE8019", ctermfg = 208 })
-  vim.api.nvim_set_hl(0, "TWDueOverdue", { default = true, fg = "#FF0000", ctermfg = 196 })
+  vim.api.nvim_set_hl(0, "TWDueDate", { default = true, link = "DiagnosticVirtualTextInfo" })
+  vim.api.nvim_set_hl(0, "TWDueSoon", { default = true, link = "DiagnosticVirtualTextWarn" })
+  vim.api.nvim_set_hl(0, "TWDueOverdue", { default = true, link = "DiagnosticVirtualTextError" })
 end
 
 function M.setup(opts)
