@@ -19,7 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        nvim: [v0.10.4, stable]
+        include:
+          - nvim: v0.10.4
+            coverage: false
+          - nvim: stable
+            coverage: true
     steps:
       - uses: actions/checkout@v5
       - uses: rhysd/action-setup-vim@v1
@@ -28,11 +32,25 @@ jobs:
           version: ${{ matrix.nvim }}
       - name: Install Taskwarrior
         run: sudo apt-get update && sudo apt-get install -y taskwarrior
+      - uses: leafo/gh-actions-lua@v10
+        if: matrix.coverage
+        with:
+          luaVersion: luajit-2.1
+      - uses: leafo/gh-actions-luarocks@v4
+        if: matrix.coverage
+      - name: Install luacov
+        if: matrix.coverage
+        run: luarocks install luacov
       - name: Versions
         run: |
           nvim --version | head -1
           task --version
-      - name: test_task_batch
-        run: nvim --headless -u NONE -c "lua dofile('lua/tests/test_task_batch.lua')"
-      - name: test_sync_render
-        run: nvim --headless -u NONE -c "lua dofile('lua/tests/test_sync_render.lua')"
+          yq --version # preinstalled on GitHub's Ubuntu image; the frontmatter suite needs it
+      - name: Tests
+        if: ${{ !matrix.coverage }}
+        run: scripts/test.sh
+      - name: Tests with coverage
+        if: matrix.coverage
+        run: |
+          eval "$(luarocks path)"
+          COVERAGE=1 COVERAGE_MIN=100 scripts/test.sh
