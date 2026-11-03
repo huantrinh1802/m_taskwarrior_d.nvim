@@ -19,12 +19,10 @@ end
 -- bounded scan window. Returns nil (silently) if there's no opening fence,
 -- or nil with a warning notification if the fence is opened but never closed.
 function M.extract_frontmatter_block(bufnr)
+  -- A buffer always has at least one line.
   local line_count = vim.api.nvim_buf_line_count(bufnr)
-  if line_count == 0 then
-    return nil
-  end
   local first = vim.api.nvim_buf_get_lines(bufnr, 0, 1, false)[1]
-  if first == nil or vim.trim(first) ~= "---" then
+  if vim.trim(first) ~= "---" then
     return nil
   end
 
