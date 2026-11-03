@@ -197,6 +197,23 @@ This allows you to quickly capture tasks with context inline, while keeping your
 }
 ```
 
+### Highlights
+
+The plugin defines these groups with `default = true`, so your colorscheme or config can override any of them:
+
+| Group | Used for | Default |
+| --- | --- | --- |
+| `TWDueDate` | Due/scheduled text, more than a day away | links to `DiagnosticVirtualTextInfo` |
+| `TWDueSoon` | Due/scheduled text, within a day | links to `DiagnosticVirtualTextWarn` |
+| `TWDueOverdue` | Overdue text | links to `DiagnosticVirtualTextError` |
+| `TWConceal` | Concealed `$id{}`/`$query{}` markers | `#83a598` |
+
+The due groups follow your theme's diagnostic colors. To use your own:
+
+```lua
+vim.api.nvim_set_hl(0, "TWDueOverdue", { fg = "#ff0000", bold = true })
+```
+
 ### Statuses
 
 - `pending`: corresponding to `pending` status
