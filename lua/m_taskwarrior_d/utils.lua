@@ -654,28 +654,23 @@ function M.apply_context_data(line, line_number)
   -- Extract only tokens that are safe to apply as modifications.
   local mods = extract_safe_mods_from_filter(query)
   query = table.concat(mods, " ")
-  local count = 1
-  local uuid = nil
+  -- The block is the lines after the header (past one blank line, which is
+  -- how query results are rendered) up to the next blank line or the end.
   local tasks = {}
-  local next_line, next_line_number = M.get_line(line_number + count)
-  _, uuid = M.extract_uuid(next_line)
-  if uuid then
-    table.insert(tasks, uuid)
+  local next_line_number = line_number + 1
+  if vim.trim(M.get_line(next_line_number)) == "" then
+    next_line_number = next_line_number + 1
   end
-  local block_ended = true
-  if #next_line == 0 or next_line == " " then
-    block_ended = false
-  end
-  while not block_ended and next_line_number <= no_of_lines do
-    count = count + 1
-    next_line, next_line_number = M.get_line(line_number + count)
-    if next_line_number == no_of_lines or #next_line == 0 or next_line == " " then
-      block_ended = true
+  while next_line_number <= no_of_lines do
+    local next_line = M.get_line(next_line_number)
+    if vim.trim(next_line) == "" then
+      break
     end
-    _, uuid = M.extract_uuid(next_line)
+    local _, uuid = M.extract_uuid(next_line)
     if uuid then
       table.insert(tasks, uuid)
     end
+    next_line_number = next_line_number + 1
   end
   if #tasks == 0 or #query == 0 then
     return
