@@ -398,6 +398,14 @@ function M.toggle_task_status(current_line, line_number, new_status)
   return new_status
 end
 
+-- The " $id{uuid}" marker appended to a task line, wrapped in
+-- comment_prefix/comment_suffix when those are configured.
+local function id_marker(uuid)
+  local prefix = M.comment_prefix ~= "" and " " .. M.comment_prefix or ""
+  local suffix = M.comment_suffix ~= "" and " " .. M.comment_suffix or ""
+  return prefix .. " $id{" .. uuid .. "}" .. suffix
+end
+
 function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
   local list_sb, _, status = string.match(line, M.checkbox_pattern.lua)
   local desc = string.gsub(line, M.checkbox_pattern.lua, "")
@@ -410,11 +418,7 @@ function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
     end
     uuid = require("m_taskwarrior_d.task").add_task(desc)
     result = line:gsub("%s+$", "")
-      .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-      .. " $id{"
-      .. uuid
-      .. "}"
-      .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+      .. id_marker(uuid)
   else
     desc = string.gsub(desc, M.id_part_pattern.lua, "")
     local cached_task = task_cache and task_cache[uuid]
@@ -423,11 +427,7 @@ function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
       line = string.gsub(line, M.id_part_pattern.lua, "")
       uuid = require("m_taskwarrior_d.task").add_task(desc)
       result = line:gsub("%s+$", "")
-        .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-        .. " $id{"
-        .. uuid
-        .. "}"
-        .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+        .. id_marker(uuid)
     else
       local new_task = cached_task or require("m_taskwarrior_d.task").get_task_by(uuid, "task")
       if new_task then
@@ -454,11 +454,7 @@ function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
             .. M.checkbox_suffix
             .. " "
             .. M.trim(desc)
-            .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-            .. " $id{"
-            .. new_task.uuid
-            .. "}"
-            .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+            .. id_marker(new_task.uuid)
         else
           result = string.rep(" ", spaces or 0)
             .. list_sb
@@ -468,11 +464,7 @@ function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
             .. M.checkbox_suffix
             .. " "
             .. new_task.description
-            .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-            .. " $id{"
-            .. new_task.uuid
-            .. "}"
-            .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+            .. id_marker(new_task.uuid)
         end
       else
         result = line
@@ -509,9 +501,6 @@ function M.check_dependencies(line_number, task_cache, synced, sync_only_tracked
     return nil, nil
   end
   local next_number_of_spaces = count_leading_spaces(next_line)
-  if next_number_of_spaces == nil then
-    return nil, nil
-  end
   local _, checkbox, _ = string.match(next_line, M.checkbox_pattern.lua)
   if checkbox == nil then
     return nil, nil
@@ -647,11 +636,7 @@ function M.render_tasks(tasks, depth)
           .. M.checkbox_suffix
           .. " "
           .. task.desc
-          .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
-          .. " $id{"
-          .. task.uuid
-          .. "}"
-          .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
+          .. id_marker(task.uuid)
       )
       if task[1] then
         local nested_tasks = M.render_tasks(task, depth + 1)
@@ -771,6 +756,7 @@ function M.parse_ISO8601_date(iso_date)
   return as_local + os.difftime(as_local, os.time(utc_fields))
 end
 
+-- `task_data` must have a due or scheduled date.
 local function calculate_time_diff(task_data)
   local target_time
   local time_text = ""
@@ -783,10 +769,6 @@ local function calculate_time_diff(task_data)
   if task_data.due then
     time_text = "Due: "
     target_time = M.parse_ISO8601_date(task_data.due)
-  end
-
-  if not target_time then
-    return
   end
 
   local current_time = os.time()
@@ -894,13 +876,10 @@ function M.render_virtual_due_dates(start_line, end_line)
           vim.api.nvim_buf_clear_namespace(bufnr, M.ns_due_id, row, row + 1)
           local task_data = task_data_map[uuid]
           if task_data and (task_data.status ~= "deleted" and task_data.status ~= "completed") and (task_data.due or task_data.scheduled) then
-            local text_tuple = calculate_time_diff(task_data)
-            if text_tuple then
-              vim.api.nvim_buf_set_extmark(bufnr, M.ns_due_id, row, 0, {
-                virt_text = { text_tuple },
-                virt_text_pos = "eol",
-              })
-            end
+            vim.api.nvim_buf_set_extmark(bufnr, M.ns_due_id, row, 0, {
+              virt_text = { calculate_time_diff(task_data) },
+              virt_text_pos = "eol",
+            })
           end
         end
       end
