@@ -15,7 +15,7 @@
 - nui.input does not take focus headlessly when mounted from a :command, so `test_commands` fakes it (`H.fake_nui_input`/`H.submit_input`); popups, menus and splits are real.
 - `lua/test.lua`, `lua/test.json`, `lua/tests/test.md` are untracked scratch files.
 - Lint: `luacheck lua` (config in `.luacheckrc`; pre-existing warnings in `init.lua`/`utils.lua` are ignored by code — drop a code once fixed). Locally, install with `luarocks --lua-version 5.1 --lua-dir $(brew --prefix luajit) install --local luacheck` (the Lua 5.5 build of luacheck crashes).
-- CI: `.github/workflows/ci.yml` runs luacheck and `scripts/test.sh` on push to `main` and on PRs, against Neovim v0.10.4 and stable with Ubuntu's apt Taskwarrior (2.6.x); the stable leg enforces 100% line coverage.
+- CI: `.github/workflows/ci.yml` runs luacheck and `scripts/test.sh` on push to `main` and on PRs, against Neovim v0.10.4 and stable with Taskwarrior 3.5.0 built from the release tarball (cached; Ubuntu's apt only has 2.6); the stable leg enforces 100% line coverage.
 
 ## Key APIs Used
 - `vim.system(args, { text = true })` sync (`:wait()`) and async (callback)
