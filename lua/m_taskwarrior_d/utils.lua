@@ -10,30 +10,9 @@ M.task_pattern = {
 }
 M.task = require("m_taskwarrior_d.task")
 
+-- Local date fields (os.date("*t")) for a Taskwarrior UTC timestamp.
 function M.convert_timestamp_utc_local(timestamp_utc)
-  local year = tonumber(string.sub(timestamp_utc, 1, 4))
-  local month = tonumber(string.sub(timestamp_utc, 5, 6))
-  local day = tonumber(string.sub(timestamp_utc, 7, 8))
-  local hour = tonumber(string.sub(timestamp_utc, 10, 11))
-  local min = tonumber(string.sub(timestamp_utc, 12, 13))
-  local sec = tonumber(string.sub(timestamp_utc, 14, 15))
-
-  -- Convert UTC time to local time
-  local utc_time = os.time({ year = year, month = month, day = day, hour = hour, min = min, sec = sec, dst = true })
-  -- Get the local timezone offset in seconds
-  local local_tz_offset = os.time() - os.time(os.date("!*t"))
-
-  -- Check if the local timezone is currently observing daylight saving time
-  local local_time = os.date("*t", os.time())
-  local local_dst = local_time.isdst
-
-  -- Adjust the offset if daylight saving time is in effect
-  if local_dst then
-    local_tz_offset = local_tz_offset + 3600 -- Add an hour for daylight saving time
-  end
-
-  -- Convert UTC time to local time by adding the timezone offset
-  return os.date("*t", utc_time + local_tz_offset) -- Convert UTC time to local time
+  return os.date("*t", M.parse_ISO8601_date(timestamp_utc))
 end
 
 function M.encode_patterns(str)
