@@ -289,11 +289,11 @@ local function is_safe_mod_token(token)
   -- Attribute modification like project:Home, priority:H, due:tomorrow.
   -- Only accept plain attribute:value forms (no modifiers like .before/.not etc).
   -- Those are filter-specific and don't translate cleanly to a modification.
+  -- status/uuid/id select tasks; applying them would complete, delete or
+  -- re-identify every task in the block.
   if token:match("^[%w_]+:[^%s]+$") then
-    local attr = token:match("^([%w_]+):")
-    if attr and not attr:find("%.", 1, true) then
-      return true
-    end
+    local attr = token:match("^([%w_]+):"):lower()
+    return attr ~= "status" and attr ~= "uuid" and attr ~= "id"
   end
 
   return false
