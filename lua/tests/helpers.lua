@@ -11,6 +11,9 @@
 -- Every suite runs in its own Neovim process (see scripts/test.sh), so the
 -- plugin's module-level state and setup() never leak between suites.
 
+-- capture_print swaps out the global print.
+-- luacheck: globals print
+
 local this_file = debug.getinfo(1, "S").source:sub(2)
 local lua_dir = this_file:match("(.*/)tests/[^/]+$")
 local repo_dir = vim.fn.fnamemodify(lua_dir, ":p:h:h")
