@@ -334,6 +334,20 @@ check("a range that the buffer shrank past during the export is skipped", functi
   eq(0, #vim.api.nvim_buf_get_extmarks(0, utils.ns_due_id, 0, -1, {}))
 end)
 
+check("commands that change one line refresh that line's due mark", function()
+  for _, command in ipairs({ "TWSyncCurrent", "TWUpdateCurrent", "1TWSyncBulk", "1TWRunBulk mod +x", "TWRunWithCurrent mod +x" }) do
+    local uuid = H.add("command due", { "due:now+3d" })
+    vim.cmd("enew!")
+    H.set_lines({ "- [ ] command due $id{" .. uuid .. "}", "- [ ] second line" })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    H.capture_print(function()
+      vim.cmd(command)
+    end)
+    H.wait_async()
+    assert(due_text(0), command .. " did not render the mark on its own line")
+  end
+end)
+
 H.section("buffer bookkeeping")
 
 check("wiping a markdown buffer forgets its conceal and due state", function()
