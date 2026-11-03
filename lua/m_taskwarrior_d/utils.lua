@@ -616,7 +616,6 @@ function M.build_hierarchy(item, visited, lookup)
         return a_has_deps
       end
     end)
-    print(vim.inspect(dependencies))
     for _, dependency in ipairs(dependencies) do
       if not visited[dependency] then
         visited[dependency] = true
