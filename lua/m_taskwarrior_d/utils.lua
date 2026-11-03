@@ -187,17 +187,6 @@ function findPair(table, search_key, search_value)
   end
 end
 
-local function concat_with_quotes(tbl)
-  local result = ""
-  for i, v in ipairs(tbl) do
-    if i > 1 then
-      result = result .. ","
-    end
-    result = result .. '"' .. v .. '"'
-  end
-  return result
-end
-
 -- Tokenize a string into an array of tokens, respecting quoted strings and escape sequences.
 -- Handles escaped quotes (\") and escaped backslashes (\\) within quoted strings.
 -- Example: 'description:"He said \"hello\""' -> ['description:He said "hello"']
@@ -371,13 +360,7 @@ end
 function M.update_related_tasks_statuses(uuid)
   local task_mod = require("m_taskwarrior_d.task")
   local _, result = task_mod.get_blocked_tasks_by(uuid)
-  local tasks
-  if vim == nil then
-    local json = require("cjson")
-    tasks = json.decode(result)
-  else
-    tasks = vim.fn.json_decode(result)
-  end
+  local tasks = vim.fn.json_decode(result)
   for _, task in ipairs(tasks) do
     local _, dependencies = task_mod.get_tasks_by(task["depends"])
     local new_status = calculate_final_status(dependencies)
@@ -608,20 +591,8 @@ function M.build_hierarchy(item, visited, lookup)
         return dep_a.entry < dep_b.entry
       end
 
-      -- 3. Tie-break: dependency chain check
-      local a_depends_on_b = dep_a.depends and vim.tbl_contains(dep_a.depends, dep_b.uuid)
-      local b_depends_on_a = dep_b.depends and vim.tbl_contains(dep_b.depends, dep_a.uuid)
-      if a_depends_on_b then
-        return true -- if b depends on a, a should come first
-      else
-        return false
-      end
-      -- 1. Check if they have dependencies
-      local a_has_deps = dep_a.depends and #dep_a.depends > 0
-      local b_has_deps = dep_b.depends and #dep_b.depends > 0
-      if a_has_deps ~= b_has_deps then
-        return a_has_deps
-      end
+      -- 3. Tie-break: a task that depends on its sibling comes first
+      return dep_a.depends ~= nil and vim.tbl_contains(dep_a.depends, dep_b.uuid)
     end)
     for _, dependency in ipairs(dependencies) do
       if not visited[dependency] then
