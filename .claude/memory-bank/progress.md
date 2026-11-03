@@ -10,7 +10,7 @@
 - Query views, dependency rendering, nui.nvim popups
 
 ## Tests
-- 9 suites, 180 checks, 100% line coverage (branch `chore/test-coverage`, 2026-11-03): test_dependencies, test_utils, test_task, test_commands, test_frontmatter, test_health, test_comment_markers, plus the original test_task_batch and test_sync_render. All pass on Taskwarrior 3.5.0 locally.
+- 8 suites, 157 checks, 100% line coverage (branch `chore/v0.11-tests-and-fixes`, 2026-11-03): test_dependencies, test_utils, test_task, test_commands, test_health, test_comment_markers, plus the original test_task_batch and test_sync_render. All pass on Taskwarrior 3.5.0 locally.
 
 ## Known Issues
 - `get_tasks_bulk` runs export chunks in parallel (see activeContext open questions).
