@@ -249,10 +249,13 @@ H.section("due-date virtual text")
 
 local function due_text(row)
   local marks = vim.api.nvim_buf_get_extmarks(0, utils.ns_due_id, { row, 0 }, { row, -1 }, { details = true })
-  if #marks == 0 then
-    return nil
+  for _, mark in ipairs(marks) do
+    -- An invalidated mark is hidden, so it is not on screen.
+    if not mark[4].invalid then
+      return mark[4].virt_text[1]
+    end
   end
-  return marks[1][4].virt_text[1]
+  return nil
 end
 
 local function render(lines)
@@ -309,6 +312,16 @@ check("a range without tasks clears its stale marks", function()
   eq(nil, due_text(0))
 end)
 
+check("deleting a task's line removes its mark instead of moving it to the next line", function()
+  local uuid = H.add("deleted line", { "due:now+3d" })
+  render({ "- [ ] deleted line $id{" .. uuid .. "}", "- [ ] no due date", "" })
+  assert(due_text(0), "no mark to delete")
+  vim.cmd("1delete")
+  eq({ "- [ ] no due date", "" }, H.lines())
+  eq(nil, due_text(0))
+  eq(nil, due_text(1))
+end)
+
 check("a buffer wiped while its export runs is skipped without error", function()
   local uuid = H.add("wiped", { "due:now+3d" })
   vim.cmd("enew")
@@ -327,7 +340,7 @@ check("a range that the buffer shrank past during the export is skipped", functi
   utils.render_virtual_due_dates(2, 3)
   H.set_lines({ "a" })
   H.wait_async()
-  eq(0, #vim.api.nvim_buf_get_extmarks(0, utils.ns_due_id, 0, -1, {}))
+  eq(nil, due_text(0))
 end)
 
 check("commands that change one line refresh that line's due mark", function()
