@@ -1,4 +1,3 @@
 return {
   include = { "lua/m_taskwarrior_d/[^/]+$" },
-  includeuntestedfiles = { "lua/m_taskwarrior_d" },
 }

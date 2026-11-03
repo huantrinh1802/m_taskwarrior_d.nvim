@@ -30,6 +30,14 @@ done
 if [ "${COVERAGE:-0}" = 1 ]; then
   nvim --headless -u NONE -c "lua require('luacov.reporter').report()" -c "qa!"
   sed -n '/^Summary/,$p' luacov.report.out
+  # luacov only reports modules that were loaded; a module no suite requires
+  # would otherwise slip past COVERAGE_MIN.
+  for f in lua/m_taskwarrior_d/*.lua; do
+    if ! grep -q "^$f " luacov.report.out; then
+      echo "Not loaded by any suite: $f"
+      status=1
+    fi
+  done
   if [ -n "${COVERAGE_MIN:-}" ]; then
     total=$(awk '/^Total/ { sub("%", "", $NF); print $NF }' luacov.report.out)
     if awk -v t="$total" -v m="$COVERAGE_MIN" 'BEGIN { exit !(t + 0 < m + 0) }'; then
