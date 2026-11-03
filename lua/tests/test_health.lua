@@ -5,7 +5,7 @@
 local this_file = debug.getinfo(1, "S").source:sub(2)
 package.path = this_file:match("(.*/)tests/[^/]+$") .. "?.lua;" .. package.path
 local H = require("tests.helpers")
-local check, eq = H.check, H.eq
+local check = H.check
 
 local tmp_dir = H.isolate_taskwarrior()
 local health = require("m_taskwarrior_d.health")
