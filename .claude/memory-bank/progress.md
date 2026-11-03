@@ -10,12 +10,12 @@
 - Query views, dependency rendering, nui.nvim popups
 
 ## Tests
-- `lua/tests/test_task_batch.lua` (11 checks) and `lua/tests/test_sync_render.lua` (13 checks), run headless against a throwaway `TASKRC`/`TASKDATA`. Both pass on Taskwarrior 3.5.0.
+- 9 suites, 180 checks, 100% line coverage (branch `chore/test-coverage`, 2026-11-03): test_dependencies, test_utils, test_task, test_commands, test_frontmatter, test_health, test_comment_markers, plus the original test_task_batch and test_sync_render. All pass on Taskwarrior 3.5.0 locally.
 
 ## Known Issues
 - `get_tasks_bulk` runs export chunks in parallel (see activeContext open questions).
 - `task add` and status modifications are still one process per task.
-- `check_dependencies` makes a parent depend on every deeper-indented line (grandchildren included); this predates the branch.
+- `dep:` adds to a task's dependencies, so syncs never remove a dependency (deleted child lines, or grandchild deps written before the direct-children fix, stay).
 
 ## Next Steps
 - Decide on sequential chunks / `rc.gc=off` for TW 2.x.

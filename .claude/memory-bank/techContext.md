@@ -9,10 +9,13 @@
 ## Build/Test Setup
 - No build system or package manager.
 - Syntax check: `luajit -b lua/m_taskwarrior_d/<file>.lua /dev/null`
-- Regression tests: `nvim --headless -u NONE -c "lua dofile('lua/tests/test_task_batch.lua')"` and the same for `test_sync_render.lua`. They use a throwaway `TASKRC`/`TASKDATA` and need the real `task` binary.
+- Tests: `scripts/test.sh` runs every `lua/tests/test_*.lua` in its own headless Neovim (or pass suite paths). Suites use `lua/tests/helpers.lua` (isolated `TASKRC`/`TASKDATA`, stubs, print/notify capture) and need the real `task` binary; `test_commands`/`test_comment_markers` need nui.nvim (`$NUI_PATH`, else cloned into `.tests/`), `test_frontmatter` needs `yq` (skips without it).
+- Coverage: `eval "$(luarocks --lua-version 5.1 path)"; COVERAGE=1 COVERAGE_MIN=100 scripts/test.sh` (luacov for LuaJIT: `luarocks --lua-version 5.1 --lua-dir $(brew --prefix luajit) install --local luacov`). Line coverage is 100% across all six modules.
+- LuaJIT credits the first line of a multi-line expression to a later line, so luacov reports such lines as missed even when they ran; keep expressions on one line (or name parts) rather than adding `luacov: disable`.
+- nui.input does not take focus headlessly when mounted from a :command, so `test_commands` fakes it (`H.fake_nui_input`/`H.submit_input`); popups, menus and splits are real.
 - `lua/test.lua`, `lua/test.json`, `lua/tests/test.md` are untracked scratch files.
 - Lint: `luacheck lua` (config in `.luacheckrc`; pre-existing warnings in `init.lua`/`utils.lua` are ignored by code — drop a code once fixed). Locally, install with `luarocks --lua-version 5.1 --lua-dir $(brew --prefix luajit) install --local luacheck` (the Lua 5.5 build of luacheck crashes).
-- CI: `.github/workflows/ci.yml` runs luacheck and both regression suites on push to `main` and on PRs, against Neovim v0.10.4 and stable with Ubuntu's apt Taskwarrior (2.6.x).
+- CI: `.github/workflows/ci.yml` runs luacheck and `scripts/test.sh` on push to `main` and on PRs, against Neovim v0.10.4 and stable with Ubuntu's apt Taskwarrior (2.6.x); the stable leg enforces 100% line coverage.
 
 ## Key APIs Used
 - `vim.system(args, { text = true })` sync (`:wait()`) and async (callback)
