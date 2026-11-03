@@ -112,9 +112,6 @@ function M.trim(st)
 end
 
 local function count_leading_spaces(line)
-  if line == nil then
-    return nil
-  end
   local count = 0
   for i = 1, #line do
     if line:sub(i, i) == " " then
@@ -237,10 +234,6 @@ local function tokenize_tw_args(str)
 end
 
 local function is_safe_mod_token(token)
-  if not token or token == "" then
-    return false
-  end
-
   -- Filter/expression tokens that must not be applied as modifications.
   if token == "(" or token == ")" then
     return false
@@ -396,8 +389,7 @@ function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
       return line, nil
     end
     uuid = require("m_taskwarrior_d.task").add_task(desc)
-    result = line:gsub("%s+$", "")
-      .. id_marker(uuid)
+    result = line:gsub("%s+$", "") .. id_marker(uuid)
   else
     desc = string.gsub(desc, M.id_part_pattern.lua, "")
     local cached_task = task_cache and task_cache[uuid]
@@ -405,8 +397,7 @@ function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
     if not task_exists then
       line = string.gsub(line, M.id_part_pattern.lua, "")
       uuid = require("m_taskwarrior_d.task").add_task(desc)
-      result = line:gsub("%s+$", "")
-        .. id_marker(uuid)
+      result = line:gsub("%s+$", "") .. id_marker(uuid)
     else
       local new_task = cached_task or require("m_taskwarrior_d.task").get_task_by(uuid, "task")
       if new_task then
@@ -422,29 +413,14 @@ function M.add_or_sync_task(line, replace_desc, task_cache, sync_only_tracked)
         end
         status = new_task_status_sym
         uuid = new_task.uuid
-        local spaces = count_leading_spaces(line)
+        -- Taskwarrior's description wins unless the buffer's is being pushed.
+        local description = new_task.description
         if replace_desc then
           require("m_taskwarrior_d.task").modify_task(uuid, desc)
-          result = string.rep(" ", spaces or 0)
-            .. list_sb
-            .. " "
-            .. M.checkbox_prefix
-            .. new_task_status_sym
-            .. M.checkbox_suffix
-            .. " "
-            .. M.trim(desc)
-            .. id_marker(new_task.uuid)
-        else
-          result = string.rep(" ", spaces or 0)
-            .. list_sb
-            .. " "
-            .. M.checkbox_prefix
-            .. new_task_status_sym
-            .. M.checkbox_suffix
-            .. " "
-            .. new_task.description
-            .. id_marker(new_task.uuid)
+          description = M.trim(desc)
         end
+        local checkbox = list_sb .. " " .. M.checkbox_prefix .. new_task_status_sym .. M.checkbox_suffix
+        result = string.rep(" ", count_leading_spaces(line)) .. checkbox .. " " .. description .. id_marker(uuid)
       else
         result = line
       end
