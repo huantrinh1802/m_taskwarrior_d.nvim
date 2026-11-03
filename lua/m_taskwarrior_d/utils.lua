@@ -516,6 +516,10 @@ function M.check_dependencies(line_number, task_cache, synced, sync_only_tracked
   if checkbox == nil then
     return nil, nil
   end
+  -- Every deeper line is synced, but only direct children (no deeper than
+  -- the shallowest child so far) become dependencies; grandchildren belong
+  -- to their own parent line, which gets its dependencies when it is synced.
+  local child_spaces = next_number_of_spaces
   while next_line ~= nil and checkbox ~= nil and current_number_of_spaces < next_number_of_spaces do
     local next_line_number = line_number + count
     local uuid
@@ -529,9 +533,12 @@ function M.check_dependencies(line_number, task_cache, synced, sync_only_tracked
         synced[next_line_number] = true
       end
     end
-    -- nil when sync_only_tracked skipped an untracked child line
-    if uuid then
-      table.insert(deps, uuid)
+    if next_number_of_spaces <= child_spaces then
+      child_spaces = next_number_of_spaces
+      -- nil when sync_only_tracked skipped an untracked child line
+      if uuid then
+        table.insert(deps, uuid)
+      end
     end
     count = count + 1
     next_line = M.get_line(line_number + count)
