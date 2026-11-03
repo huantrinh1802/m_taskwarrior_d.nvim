@@ -50,15 +50,10 @@ jobs:
           cmake --install tw-build
       - name: Add Taskwarrior to PATH
         run: echo "$HOME/.local/taskwarrior/bin" >> "$GITHUB_PATH"
-      - uses: leafo/gh-actions-lua@v10
+      # luacov is pure Lua, so Neovim's LuaJIT only needs its sources on LUA_PATH.
+      - name: Fetch luacov
         if: matrix.coverage
-        with:
-          luaVersion: luajit-2.1
-      - uses: leafo/gh-actions-luarocks@v4
-        if: matrix.coverage
-      - name: Install luacov
-        if: matrix.coverage
-        run: luarocks install luacov
+        run: git clone --quiet --depth 1 --branch v0.17.0 https://github.com/lunarmodules/luacov "$RUNNER_TEMP/luacov"
       - name: Versions
         run: |
           nvim --version | head -1
@@ -69,5 +64,5 @@ jobs:
       - name: Tests with coverage
         if: matrix.coverage
         run: |
-          eval "$(luarocks path)"
+          export LUA_PATH="$RUNNER_TEMP/luacov/src/?.lua;;"
           COVERAGE=1 COVERAGE_MIN=100 scripts/test.sh
