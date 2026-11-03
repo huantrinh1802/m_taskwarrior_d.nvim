@@ -126,19 +126,15 @@ function M.toggle_task()
   end
 end
 
-function M.update_current_task()
-  local start_line = vim.fn.line("'<") -- Get the start line of the selection
-  local end_line = vim.fn.line("'>") -- Get the end line of the selection
-  if (start_line == 0) or (end_line == 0) then
-    local current_line, line_number = M.utils.get_line()
+-- Push the description of lines start_line..end_line (default: the cursor
+-- line) to Taskwarrior.
+function M.update_current_task(start_line, end_line)
+  start_line = start_line or vim.api.nvim_win_get_cursor(0)[1]
+  end_line = end_line or start_line
+  for line_num = start_line, end_line do
+    local current_line, line_number = M.utils.get_line(line_num)
     local result, _ = M.utils.add_or_sync_task(current_line, true)
     vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
-  else
-    for line_num = start_line, end_line do
-      local current_line, line_number = M.utils.get_line(line_num)
-      local result, _ = M.utils.add_or_sync_task(current_line, true)
-      vim.api.nvim_buf_set_lines(0, line_number - 1, line_number, false, { result })
-    end
   end
 end
 
@@ -319,12 +315,16 @@ function M.run_task(args)
   end
 end
 
-function M.run_task_bulk(args)
+-- Run a task-changing command against every task on lines
+-- start_line..end_line (default: the cursor line).
+function M.run_task_bulk(args, start_line, end_line)
+  start_line = start_line or vim.api.nvim_win_get_cursor(0)[1]
+  end_line = end_line or start_line
   if #args == 0 then
     M.ui.prompt_or_run({
       title = "Run task",
       run = function(value)
-        M.run_task_bulk({ value })
+        M.run_task_bulk({ value }, start_line, end_line)
       end,
     })
   else
@@ -337,8 +337,6 @@ function M.run_task_bulk(args)
       end
     end
     if good_command then
-      local start_line = vim.fn.line("'<") -- Get the start line of the selection
-      local end_line = vim.fn.line("'>") -- Get the end line of the selection
       local results = {}
       for line_num = start_line, end_line do
         local current_line, _ = M.utils.get_line(line_num)
@@ -728,16 +726,14 @@ function M.setup(opts)
       M.utils.render_virtual_due_dates()
     end
   end, {})
-  vim.api.nvim_create_user_command("TWSyncBulk", function()
-    local start_line = vim.fn.line("'<") -- Get the start line of the selection
-    local end_line = vim.fn.line("'>") -- Get the end line of the selection
-    M.sync_tasks(start_line, end_line)
+  vim.api.nvim_create_user_command("TWSyncBulk", function(args)
+    M.sync_tasks(args.line1, args.line2)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(start_line, end_line)
+      M.utils.render_virtual_due_dates(args.line1, args.line2)
     end
   end, { range = true })
-  vim.api.nvim_create_user_command("TWUpdateCurrent", function()
-    M.update_current_task()
+  vim.api.nvim_create_user_command("TWUpdateCurrent", function(args)
+    M.update_current_task(args.line1, args.line2)
     local _, line_number = M.utils.get_line()
     if M._config.display_due_or_scheduled then
       M.utils.render_virtual_due_dates(line_number)
@@ -778,11 +774,9 @@ function M.setup(opts)
     M.toggle_saved_queries()
   end, {})
   vim.api.nvim_create_user_command("TWRunBulk", function(args)
-    M.run_task_bulk(args.fargs)
-    local start_line = vim.fn.line("'<") -- Get the start line of the selection
-    local end_line = vim.fn.line("'>") -- Get the end line of the selection
+    M.run_task_bulk(args.fargs, args.line1, args.line2)
     if M._config.display_due_or_scheduled then
-      M.utils.render_virtual_due_dates(start_line, end_line)
+      M.utils.render_virtual_due_dates(args.line1, args.line2)
     end
   end, { nargs = "*", range = true })
   vim.api.nvim_create_user_command("TWQueryTasks", function()
