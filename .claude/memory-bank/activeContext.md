@@ -1,7 +1,7 @@
 # Active Context: m_taskwarrior_d.nvim
 
 ## Current Focus (2026-11-03)
-Branch `chore/test-coverage` (on top of `feature/frontmatter-task-notes`): full test coverage. Bugs found by the new tests were fixed in separate `fix:` commits:
+Release plan: branch `chore/v0.11-tests-and-fixes` (off `main`) carries the test suites, CI and bug fixes for the next v0.11 patch release; `feature/frontmatter-task-notes` is rebased on top of it and ships as v0.12. Releases are tagged by hand from `main`. Bugs found by the new tests were fixed in separate `fix:` commits:
 - query trees dropped grandchildren; a debug print on every query
 - failed query exports raised E474
 - nested sync made parents depend on grandchildren (trees rendered flattened)
