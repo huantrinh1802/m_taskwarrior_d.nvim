@@ -3,6 +3,7 @@
 #   scripts/test.sh                      # all suites
 #   scripts/test.sh lua/tests/test_x.lua # selected suites
 #   COVERAGE=1 scripts/test.sh           # also record luacov stats and report
+#   COVERAGE=1 COVERAGE_MIN=100 scripts/test.sh  # and fail below 100% lines
 # Coverage needs luacov on LUA_PATH, e.g. `eval "$(luarocks --lua-version 5.1 path)"`.
 cd "$(dirname "$0")/.." || exit 1
 
@@ -29,5 +30,12 @@ done
 if [ "${COVERAGE:-0}" = 1 ]; then
   nvim --headless -u NONE -c "lua require('luacov.reporter').report()" -c "qa!"
   sed -n '/^Summary/,$p' luacov.report.out
+  if [ -n "${COVERAGE_MIN:-}" ]; then
+    total=$(awk '/^Total/ { sub("%", "", $NF); print $NF }' luacov.report.out)
+    if awk -v t="$total" -v m="$COVERAGE_MIN" 'BEGIN { exit !(t + 0 < m + 0) }'; then
+      echo "Line coverage ${total}% is below ${COVERAGE_MIN}%"
+      status=1
+    fi
+  fi
 fi
 exit "$status"
