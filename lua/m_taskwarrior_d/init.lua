@@ -562,18 +562,16 @@ function M.query_tasks(line_number, query, report)
   table.insert(args, "export")
   M.task.append_tokens(args, report)
   local _, result = M.task.execute_task_args(args, true)
-  if result == nil then
+  -- A failed export (e.g. an invalid filter or report) prints nothing to
+  -- stdout, and decoding "" or "null" does not give a list.
+  local ok, tasks = pcall(vim.json.decode, result or "")
+  if not ok or type(tasks) ~= "table" then
     print("No results")
     return
   end
-  local tasks = vim.fn.json_decode(result)
   local visited = {}
   local processed_tasks = {}
   local final = {}
-  if tasks == nil then
-    print("No results")
-    return
-  end
   -- Sort by entry descending (equivalent to jq 'sort_by(.entry) | reverse')
   table.sort(tasks, function(a, b) return (a.entry or "") > (b.entry or "") end)
   local lookup_table = M.utils.build_lookup(tasks)
